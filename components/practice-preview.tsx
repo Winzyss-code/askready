@@ -1,5 +1,5 @@
 import { Square, Timer, Volume2 } from "lucide-react";
-import { ManagerDisc } from "@/components/manager-disc";
+import { Character } from "@/components/Character";
 import { cx } from "@/lib/cx";
 
 // Bar heights (% of the meter) for the still waveform. Zero is a rest dot, as before any sound arrives.
@@ -22,7 +22,7 @@ export function PracticePreview({ className }: { className?: string }) {
         </div>
         <div className="px-5 pb-6 pt-6 sm:px-6">
           <div className="flex items-center gap-4">
-            <ManagerDisc state="listening" size="md" />
+            <Character state="listening" emotion="skeptical" persona="budget" size="md" />
             <div>
               <p className="font-semibold">The hard-liner</p>
               <p className="text-sm text-neutral-500">Listening</p>

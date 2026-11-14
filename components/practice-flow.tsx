@@ -10,7 +10,7 @@ import { api, ClientError, ensureClientAuth, errorMessage } from "@/lib/client";
 import { cx } from "@/lib/cx";
 import type { Session, SessionBundle, Setup, Turn } from "@/types/domain";
 import { LessonCard } from "@/components/lesson-card";
-import { ManagerDisc, type ManagerState } from "@/components/manager-disc";
+import { Character, type CharacterState } from "@/components/Character";
 import { DailyLimit, useProgress } from "@/components/progress-panel";
 import { SetupForm } from "@/components/setup-form";
 import { Badge } from "@/components/ui/badge";
@@ -254,7 +254,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const finished = Boolean(initialFeedback && !isRetry);
   const canAnswer = !initialFeedback && userCount < 6 || isRetry && userCount === 0;
   const recording = composerState === "recording";
-  const managerState: ManagerState = busy !== null ? "thinking" : recording ? "listening" : isSpeaking ? "speaking" : "idle";
+  const managerState: CharacterState = busy !== null ? "thinking" : recording ? "listening" : isSpeaking ? "speaking" : "idle";
   const stateLabel = busy === "feedback" ? "Reviewing your words and preparing specific coaching…"
     : busy === "replying" ? `${manager} is thinking…`
     : busy === "starting" ? "Preparing your conversation…"
@@ -290,7 +290,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
 
           <section className="pt-8 lg:pt-10" aria-label={isRetry ? "The same objection" : `Your ${counterpart}`}>
             <div className="flex items-center gap-4 lg:gap-6">
-              <ManagerDisc state={managerState} analyser={meter} size="md" className="lg:[--disc:7rem]" />
+              <Character state={managerState} analyser={meter} persona={bundle.session.persona_id} size="md" className="lg:[--char:7rem]" label={`${manager}, ${stateLabel.toLowerCase()}`} />
               <div className="min-w-0">
                 <h2 className="font-semibold">{isRetry ? `${manager} said` : <>{manager}<span className="font-normal text-neutral-500"> · {scenario.counterpart.label}</span></>}</h2>
                 <p role="status" aria-live="polite" className="text-sm text-neutral-500">{stateLabel}</p>
