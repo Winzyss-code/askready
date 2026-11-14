@@ -9,7 +9,7 @@ const text = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", dis
 
 export const metadata: Metadata = {
   title: { default: "AskReady — Practice hard conversations out loud", template: "%s · AskReady" },
-  description: "One short session a day for hard conversations at work. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, and try again.",
+  description: "One short session a day for the hard conversations you avoid, at work and in life. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, and try again.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

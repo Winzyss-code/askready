@@ -172,7 +172,9 @@ test("the next conversation is one never practiced, then the one practiced longe
   const [first, second, third] = liveScenarios.map((scenario) => scenario.id);
   assert.equal(buildProgress([saved("2026-11-15", first)], NOW).next.scenarioId, second);
   assert.equal(buildProgress([saved("2026-11-15", first), saved("2026-11-14", second)], NOW).next.scenarioId, third);
-  const all = buildProgress([saved("2026-11-15", second), saved("2026-11-14", third), saved("2026-11-13", first), saved("2026-11-12", second)], NOW);
+  // Every live conversation practiced, the first one longest ago (and the second one twice).
+  const rest = liveScenarios.slice(1).map((scenario, index) => saved(`2026-11-${15 - index}`, scenario.id));
+  const all = buildProgress([...rest, saved("2026-11-01", first), saved("2026-11-02", second)], NOW);
   assert.equal(all.next.scenarioId, first);
   assert.deepEqual(all.scenarios.find((item) => item.id === second), { id: second, completed: 2, lastAt: "2026-11-15T08:00:00Z" });
   // A session abandoned in practice does not count as having practiced that conversation.

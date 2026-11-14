@@ -2,7 +2,7 @@
 
 A daily practice for the hard conversations at work: asking for more, saying no, giving honest feedback. Each session teaches one technique, rehearses it out loud against an AI manager or teammate who pushes back, gives three specific improvements on your own words, then has you retry the hardest answered objection and compare both answers using the same rubric. Skill levels and days in a row are worked out from your saved sessions.
 
-Three conversations are live (ask for a raise, say no to extra work, give difficult feedback). Three more are listed as coming soon and cannot be started.
+Four conversations are live: ask for a raise (the flagship), say no to extra work, give difficult feedback, and set a boundary with a friend or family member. Three more are listed as coming soon and cannot be started.
 
 **Live app:** https://askready-orcin.vercel.app (see [Verification](#verification) for which build has been checked there)
 
@@ -47,9 +47,9 @@ These are versioned, one-time migrations, not reset scripts. The application doe
 
 ## Product flow
 
-0. **Pick a conversation:** the landing page lists two tracks and six scenarios from `config/scenarios.ts`. Only scenarios marked `live` link to practice.
+0. **Pick a conversation:** the landing page lists two tracks and seven scenarios from `config/scenarios.ts`. Only scenarios marked `live` link to practice.
 1. **Learn and set up:** the scenario's technique (three steps and a weak line beside a stronger one, static copy we wrote), then a short form: role, the ask, two supporting facts, the likely pushback, and the counterpart's temperament. Labels come from the scenario's config.
-2. **Practice:** two to six answers, using voice or text. The counterpart (a manager or a teammate, depending on the scenario) responds to the actual case in one to three short sentences. The technique stays available as a reminder. There is no live coaching or score meter.
+2. **Practice:** two to six answers, using voice or text. The counterpart (a manager, a teammate or a friend or relative, depending on the scenario) responds to the actual case in one to three short sentences. The technique stays available as a reminder. There is no live coaching or score meter.
 3. **Feedback:** five coaching estimates, each grounded in an exact quote, plus three “You said / Say this instead / Why” improvements.
 4. **Retry:** answer the same hardest **answered** objection again. Opening greetings and unanswered final questions cannot become the retry.
 5. **Compare:** the selected original answer and retry are evaluated against the same objection, five dimensions, and scoring anchors. A lower retry score is shown honestly; improvement is not guaranteed.
@@ -74,8 +74,8 @@ components/                     Small task-focused UI components
 hooks/use-speech.ts              Audio playback and fallback lifecycle
 config/
   tracks.ts                     The two tracks scenarios are grouped under
-  scenarios.ts                  Six scenarios (three live): copy, form labels, lesson, prompts
-  personas.ts                   Counterpart temperaments and system prompts
+  scenarios.ts                  Seven scenarios (four live): copy, form labels, lesson, prompts
+  personas.ts                   Counterpart temperaments, and which ones each scenario offers
   plans.ts                      Free daily limit and planned Pro price
   rubric.ts                     Shared dimensions, anchors and exercises
 lib/
@@ -158,7 +158,7 @@ npm run test:flow:live            # Running app; real AI, DB, retry, progress, q
 node scripts/check-secrets.mjs   # Build first; private-key scan of repo/client files
 ```
 
-Live acceptance commands create anonymous test accounts and use billable provider calls with fictional rehearsal data. `test:flow:live` also stores a clearly synthetic `example.com` waitlist address. Set `ASKREADY_TEST_URL=https://your-app.vercel.app` to run against a deployment; the default is `http://localhost:3000`. Add `-- --voice` to include a real TTS-to-Whisper round trip. The flow defaults to the raise scenario; run `node scripts/check-flow.mjs --scenario=pushback` or `--scenario=feedback` for the others, `--persona=<budget|friendly|analyst>` to pick the counterpart, and `--print` to read the conversation and coaching it produced.
+Live acceptance commands create anonymous test accounts and use billable provider calls with fictional rehearsal data. `test:flow:live` also stores a clearly synthetic `example.com` waitlist address. Set `ASKREADY_TEST_URL=https://your-app.vercel.app` to run against a deployment; the default is `http://localhost:3000`. Add `-- --voice` to include a real TTS-to-Whisper round trip. The flow defaults to the raise scenario; run `node scripts/check-flow.mjs --scenario=pushback` or `--scenario=feedback` or `--scenario=boundary` for the others (the boundary run also fails if the counterpart uses workplace or manager words), `--persona=<budget|friendly|analyst>` to pick the counterpart, and `--print` to read the conversation and coaching it produced.
 
 For the browser flow, install Google Chrome, start the app, then run:
 
@@ -207,10 +207,11 @@ Checked against a **local production build** (`next build` and `next start`) usi
 - `npm run check` passed. `npm test`: 21 passed, including five for `lib/progress.ts` (empty account, an unfinished session, days in a row across the UTC boundary, level boundaries and averaging, next-conversation order).
 - The live flow passed for all three live scenarios (`raise`, `pushback`, `feedback`), including a new check that `/api/progress` matches the saved first-attempt scores and that a second account sees no progress.
 - The browser test passed for the raise scenario.
+- Later the same day, a fourth live scenario, “Set a boundary with a friend or family member”, was added. Its live flow passed against real models, including a new check that the counterpart never uses workplace or manager words. The first attempts failed: the counterpart sometimes took on the user’s side of the story and ran past the three-sentence limit, until the scenario prompt said whose side the setup is written from. In a 24-turn sample after that fix, about one reply in twelve still slipped partly into the user’s side. After the change, the raise and pushback flows passed again. The browser test failed once at the Whisper transcription step and passed on the rerun.
 - The daily-limit card was checked once in a fresh Chrome profile with one real session: no card for a new account; card instead of the form in a different scenario, both while the session was open and after coaching; its links to the session, the coaching and pricing worked; a stale client that submitted the form anyway got `DAILY_LIMIT` from the server and then the card.
 - Not rerun: the SQL tests (no SQL changed), the foundation tests, the voice round trip for the two new scenarios, and any physical-device check. Not measured: whether anyone comes back the next day.
 
-Known rough edges: scoring is generous on decent answers (the anchors are coarse, so a solid first attempt can score 100 on several skills and leave little room to show improvement); the counterpart sometimes refers to a setup fact before the user has said it; a new browser identity gets a new free session.
+Known rough edges: the rewrite templates were written for workplace asks, so in the boundary scenario they read like a negotiation (“What would you need from me to make a decision…”, “[add a measurable result]”); scoring is generous on decent answers (the anchors are coarse, so a solid first attempt can score 100 on several skills and leave little room to show improvement); the counterpart sometimes refers to a setup fact before the user has said it; a new browser identity gets a new free session.
 
 ## Deploy to Vercel
 

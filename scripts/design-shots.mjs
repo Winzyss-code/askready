@@ -110,6 +110,7 @@ const shots = [
   { name: "setup-pushback", url: "/practice/pushback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
   { name: "setup-feedback", url: "/practice/feedback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
   { name: "setup-recent-errors", url: "/practice/raise", fullPage: true, mock: { recent: [session("feedback")] }, run: async (page) => { await page.getByLabel("Your job role").fill("O"); await page.getByLabel("Achievement 1").fill("abc"); await page.getByLabel("Achievement 2").focus(); await page.getByLabel("What might your manager say?").fill("The budget is frozen until next quarter"); await page.getByLabel("Your job role").focus(); } },
+  { name: "setup-boundary", url: "/practice/boundary", fullPage: true, run: async (page) => { await page.getByLabel("Who are you to them?").waitFor(); } },
   { name: "setup-limit", url: "/practice/pushback", fullPage: true, mock: { progress: "done" }, run: async (page) => { await page.getByRole("heading", { name: "That’s today’s session." }).waitFor(); } },
   { name: "setup-limit-same", url: "/practice/raise", fullPage: true, mock: { progress: "open", recent: [session("practice")] }, run: async (page) => { await page.getByRole("heading", { name: "That’s today’s session." }).waitFor(); } },
   { name: "setup-loading", url: "/practice/raise", mock: { sessionsDelay: 4000 }, run: async () => { await wait(900); } },

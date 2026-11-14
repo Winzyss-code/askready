@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Handshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
-import { personas } from "@/config/personas";
+import { ArrowRight, Check, Handshake, HeartHandshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
+import { personasFor } from "@/config/personas";
 import { FreeAllowance } from "@/config/plans";
 import type { Scenario } from "@/config/scenarios";
 import { cx } from "@/lib/cx";
@@ -22,7 +22,7 @@ const nudges: Record<string, string> = {
   "achievements.1": "Add a little more detail so there’s something real to respond to.",
   objection: "Add the pushback you expect, even a short one.",
 };
-const personaIcons: Record<string, LucideIcon> = { budget: Shield, friendly: Handshake, analyst: SearchCheck };
+const personaIcons: Record<string, LucideIcon> = { budget: Shield, friendly: Handshake, analyst: SearchCheck, guilt: HeartHandshake };
 
 function read(form: HTMLFormElement) {
   const data = new FormData(form);
@@ -44,6 +44,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
   disabled?: boolean;
   onStart: (setup: Setup, personaId: string) => Promise<void>;
 }) {
+  const personas = personasFor(scenario);
   const [personaId, setPersonaId] = useState<string>(personas[0].id);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [answered, setAnswered] = useState<string[]>([]);
@@ -84,7 +85,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
   const field = (path: string) => ({ error: errors[path], errorId: `${path}-error`, valid: answered.includes(path) });
   const legend = "display flex items-baseline gap-3 text-xl";
   const numeral = "figure text-neutral-400";
-  const { request, facts, objection } = scenario.fields;
+  const { role, request, facts, objection } = scenario.fields;
 
   return (
     <form onSubmit={submit} onChange={track} onBlur={review} className="space-y-10">
@@ -98,8 +99,8 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
       <fieldset disabled={disabled} className="min-w-0 disabled:opacity-60">
         <legend className={legend}><span aria-hidden="true" className={numeral}>1</span>What’s the ask?</legend>
         <div className="mt-6 grid gap-6 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <Field label="Your job role" htmlFor="role" {...field("role")}>
-            <Input id="role" name="role" required minLength={2} maxLength={120} placeholder="Product designer" autoComplete="organization-title" {...wiring("role")} />
+          <Field label={role?.label ?? "Your job role"} htmlFor="role" {...field("role")}>
+            <Input id="role" name="role" required minLength={2} maxLength={120} placeholder={role?.placeholder ?? "Product designer"} autoComplete={role ? "off" : "organization-title"} {...wiring("role")} />
           </Field>
           <Field label={request.label} htmlFor="desiredRaise" {...field("desiredRaise")}>
             <Input id="desiredRaise" name="desiredRaise" required minLength={2} maxLength={200} placeholder={request.placeholder} {...wiring("desiredRaise")} />
@@ -109,7 +110,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
 
       <fieldset disabled={disabled} className="min-w-0 border-t border-neutral-200 pt-8 disabled:opacity-60">
         <legend className={cx(legend, "float-left w-full")}><span aria-hidden="true" className={numeral}>2</span>{facts.legend}</legend>
-        <p className="clear-both max-w-measure pt-3 text-sm text-neutral-500">{facts.hint} Use only facts you can support, and leave out confidential company or client details.</p>
+        <p className="clear-both max-w-measure pt-3 text-sm text-neutral-500">{facts.hint} Use only facts you can support, and leave out confidential details.</p>
         <div className="mt-6 space-y-6">
           {[0, 1].map((index) => (
             <Field key={index} label={facts.labels[index]} htmlFor={`achievement${index}`} {...field(`achievements.${index}`)}>

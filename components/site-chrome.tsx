@@ -34,7 +34,7 @@ export function SiteFooter() {
   return (
     <footer className="shell mt-24">
       <div className="flex flex-col justify-between gap-2 border-t border-neutral-200 py-8 text-sm text-neutral-500 sm:flex-row sm:items-center">
-        <p>AskReady. Say the hard thing at work, after you’ve practiced it.</p>
+        <p>AskReady. Say the hard thing, after you’ve practiced it.</p>
         <Link href="/pricing" className="link flex min-h-11 items-center self-start text-neutral-600">Free &amp; Pro</Link>
       </div>
     </footer>

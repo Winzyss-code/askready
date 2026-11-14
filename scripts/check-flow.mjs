@@ -49,6 +49,22 @@ const fixtures = {
     ],
     retry: "I hear that you have been swamped. Last week your section arrived two days after the deadline, and I rewrote the summary overnight so the report could go out. I need your section of the client report by Thursday noon. Can we agree on that and check in next Friday?",
   },
+  boundary: {
+    persona: "guilt",
+    setup: {
+      role: "Their older sister",
+      desiredRaise: "I can't lend you my car on weekends anymore",
+      achievements: ["Last month the car came back with an empty tank twice", "I missed my Saturday class because the car was not back on time"],
+      objection: "After everything I've done for you? It's just one weekend.",
+    },
+    answers: [
+      "Um, so the car thing is kind of a lot lately, I guess, I don't know.",
+      "I love helping you, but I can't lend you my car on weekends anymore. Last month the car came back with an empty tank twice, and I missed my Saturday class because the car was not back on time.",
+    ],
+    retry: "I know you've done a lot for me, and I love you. I can't lend you my car on weekends anymore. Last month the car came back with an empty tank twice, and I missed my Saturday class because the car was not back on time. I can drive you to the station on Saturday mornings instead. Would that work for you?",
+    // A friend or relative, not a manager: none of this should come from the counterpart.
+    offRole: /\b(manager|boss|budget|promotion|raise|sprint|deadlines?|projects?|priorit\w*|approv\w*|company|office|team|performance)\b/i,
+  },
 };
 const scenarioId = option("scenario", "raise");
 const fixture = fixtures[scenarioId];
@@ -96,7 +112,7 @@ try {
   assert.equal(before.today.used, false);
   assert.ok(before.skills.every((skill) => skill.score === null));
   const setup = fixture.setup;
-  const start = { action: "start", scenarioId, personaId: option("persona", "budget"), setup, requestId: randomUUID() };
+  const start = { action: "start", scenarioId, personaId: option("persona", fixture?.persona ?? "budget"), setup, requestId: randomUUID() };
   let bundle = await request("/api/turn", start);
   const id = bundle.session.id;
   assert.deepEqual(bundle.session.setup, setup);
@@ -129,6 +145,11 @@ try {
   }
   assert.equal(bundle.turns.length, 5);
   console.log("PASS checkpoint 3: real conversation, saved transcript, idempotent sends.");
+  if (fixture.offRole) {
+    const offRole = bundle.turns.filter((turn) => turn.role === "assistant" && fixture.offRole.test(turn.text));
+    assert.equal(offRole.length, 0, `The counterpart stepped out of role in ${offRole.length} turn(s); run with --print to read them`);
+    console.log("PASS role: the counterpart never used workplace or manager language.");
+  }
 
   bundle = await request("/api/feedback", { sessionId: id, attempt: 0 });
   const first = bundle.feedback.find((entry) => entry.attempt === 0);

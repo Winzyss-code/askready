@@ -12,9 +12,11 @@ export type Scenario = {
   id: string; trackId: TrackId; title: string; description: string; live: boolean;
   userRole: string;                               // used in prompts
   counterpart: { role: string; label: string };   // role is used in prompts, label in the UI
+  personaIds?: string[];                          // temperaments that fit this counterpart; the workplace set when omitted
   opening: string;                                // prompt directive for the counterpart's first line
   systemPrompt: string;
   fields: {
+    role?: { label: string; placeholder: string };  // "Your job role" when omitted
     request: { label: string; placeholder: string };
     facts: { legend: string; hint: string; labels: [string, string]; placeholders: [string, string] };
     objection: { label: string; hint: string; placeholder: string };
@@ -134,6 +136,35 @@ export const scenarios: Scenario[] = [
       ],
       weak: "You’re always late with stuff and it’s kind of becoming a problem for everyone.",
       strong: "Your section of the client report came in two days after the deadline last week, and I rewrote the summary overnight. I need your part by Thursday noon. Can we agree on that and check in next Friday?",
+    },
+  },
+  {
+    id: "boundary", trackId: "ground", title: "Set a boundary with a friend or family member", description: "Say no to the favor that keeps coming back, and keep the relationship.", live: true,
+    userRole: "someone setting a boundary with a close friend or family member who keeps asking them for the same favor",
+    counterpart: { role: "the user's close friend or family member, who keeps asking the user for the same favor and wants the answer to stay yes", label: "Friend or relative" },
+    personaIds: ["guilt", "friendly"],
+    opening: "As a close friend or relative who was asked for a chat, say hi warmly and ask what’s up in one short, casual question. Do not mention the favor yet.",
+    systemPrompt: "This is a personal conversation, not a work one. You are the one who keeps asking for the favor; the user is the one saying no. The setup is written from the user's side: the boundary, the reasons and the inconvenience are theirs, never yours, so never retell their reasons as your own complaints. You are not the user's manager, boss, colleague or client: never approve, prioritise, set deadlines or talk about budgets, projects or the team, and bring up work only if the user does. Talk like a real friend or relative: casual, warm, a little hurt by a no. Casual still means at most three sentences in total, so never string short exclamations together (not “Oh. Wow. Okay.”); fold a reaction into one sentence. Push back with the reaction the user expects, such as reminding them what you have done for them or calling it a small favor. Stay kind: no insults, threats or pressure beyond ordinary guilt. Accept the boundary and agree to something concrete once the user says clearly what they will and won't do and offers an alternative. Never invent shared history, family facts or events the user did not mention.",
+    fields: {
+      role: { label: "Who are you to them?", placeholder: "Their older sister" },
+      request: { label: "What’s your boundary?", placeholder: "I can’t lend you my car on weekends anymore" },
+      facts: {
+        legend: "Why now?", hint: "Two real moments or reasons they can’t easily wave away.",
+        labels: ["Reason 1", "Reason 2"],
+        placeholders: ["What happened last time, and when?", "What it costs you: time, money or something you missed."],
+      },
+      objection: { label: "What might they say?", hint: "The reaction you’re most worried about. They will say it.", placeholder: "After everything I’ve done for you? It’s one weekend." },
+    },
+    lesson: {
+      technique: "Care, limit, alternative",
+      summary: "A boundary lands when they hear two things: you care about them, and the answer is still no.",
+      steps: [
+        { title: "Say you care", text: "Start with the relationship, so the no isn’t a rejection of them.", dimension: "objection_handling" },
+        { title: "State the limit", text: "Say plainly what you won’t do anymore. One sentence, no long apology.", dimension: "clear_request" },
+        { title: "Offer what you can do", text: "Give one real alternative, and say when it applies.", dimension: "next_step" },
+      ],
+      weak: "I mean, it’s fine, I guess. It’s just been kind of a lot lately…",
+      strong: "I love helping you, and I’m not lending the car on weekends anymore. Last month it came back empty twice. I can drive you to the station on Saturday mornings. Would that work?",
     },
   },
   {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getScenario } from "@/config/scenarios";
-import { getPersona } from "@/config/personas";
+import { personasFor } from "@/config/personas";
 import { FREE_SESSIONS_PER_DAY } from "@/config/plans";
 import { ApiError, errorResponse, readJson, requireSameOrigin } from "@/lib/api";
 import { assertLlmConfigured, roleplay } from "@/lib/llm";
@@ -20,7 +20,8 @@ export async function POST(request: Request) {
     rateLimit(`turn:${user.id}`, 20);
     const result = await withSessionLock(input.action === "start" ? user.id : input.sessionId, async () => {
       if (input.action === "start") {
-        if (!getScenario(input.scenarioId)?.live || !getPersona(input.personaId)) throw new ApiError(400, "INVALID_SCENARIO", "Choose an available scenario and counterpart.");
+        const scenario = getScenario(input.scenarioId);
+        if (!scenario?.live || !personasFor(scenario).some((persona) => persona.id === input.personaId)) throw new ApiError(400, "INVALID_SCENARIO", "Choose an available scenario and counterpart.");
         const existing = await userQuery<Session[]>(`sessions?request_id=eq.${input.requestId}&select=*`, accessToken);
         if (existing[0]) return loadSession(existing[0].id, accessToken);
         const today = new Date().toISOString().slice(0, 10);

@@ -20,7 +20,7 @@ const example = {
 };
 const steps = [
   { title: "Learn one technique", text: "Each conversation opens with three steps and a weak line beside a stronger one." },
-  { title: "Rehearse out loud", text: "Speak or type to an AI manager or teammate who raises the objection you expect." },
+  { title: "Rehearse out loud", text: "Speak or type to an AI manager, teammate or friend who raises the objection you expect." },
   { title: "Get coached on your words", text: "See what you said beside a clearer version, with a reason for each change." },
   { title: "Retry and compare", text: "Answer the same objection again. Both attempts are scored on the same five criteria." },
 ];
@@ -42,8 +42,8 @@ export default function HomePage() {
     <main id="main" className="shell">
       <section className="grid items-center gap-x-16 gap-y-12 pt-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:pt-16" aria-labelledby="hero-heading">
         <div>
-          <h1 id="hero-heading" className="display text-2xl sm:text-3xl">Say the hard thing at work. <span className="mark">Practice it out loud first.</span></h1>
-          <p className="mt-6 max-w-measure text-lg text-neutral-600">One short session a day for the conversations you avoid: asking for more, saying no, giving honest feedback. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, then try again.</p>
+          <h1 id="hero-heading" className="display text-2xl sm:text-3xl">Say the hard thing. <span className="mark">Practice it out loud first.</span></h1>
+          <p className="mt-6 max-w-measure text-lg text-neutral-600">One short session a day for the conversations you avoid, at work and in life: asking for more, saying no, setting boundaries, giving honest feedback. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, then try again.</p>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
             <ButtonLink href={practiceHref}>Start today’s session<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
             <span className="text-sm text-neutral-600">{FreeAllowance}, free. No signup form.</span>
@@ -132,7 +132,7 @@ export default function HomePage() {
 
       <section className="mt-16 max-w-measure" aria-labelledby="privacy-heading">
         <h2 id="privacy-heading" className="font-semibold">Your practice, your words.</h2>
-        <p className="mt-3 text-sm text-neutral-600">Voice and conversation content are sent to OpenAI to run the rehearsal and generate coaching. Transcripts and results are saved in Supabase under your anonymous account; recordings are not stored by AskReady. Use only workplace details you are comfortable sharing.</p>
+        <p className="mt-3 text-sm text-neutral-600">Voice and conversation content are sent to OpenAI to run the rehearsal and generate coaching. Transcripts and results are saved in Supabase under your anonymous account; recordings are not stored by AskReady. Use only details you are comfortable sharing.</p>
         <p className="mt-2 text-sm text-neutral-600">This browser remembers your account. Clearing cookies or switching browsers means losing access to your results. Coaching is an estimate, not a prediction of how the real conversation will go.</p>
       </section>
     </main>

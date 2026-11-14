@@ -9,13 +9,13 @@ web
 User-specified: Next.js App Router, TypeScript, Tailwind, Vercel, Supabase anonymous auth and Postgres with RLS. Server-side OpenAI transcription, TTS, and an environment-configured LLM wrapper.
 
 ## Users
-US adults aged 25–45 in salaried jobs who avoid or dread hard conversations at work: asking for more, saying no, giving honest feedback. They come with one conversation in mind and stay to get better at the next one.
+US adults aged 25–45 who avoid or dread hard conversations, at work and in life: asking for more, saying no, setting boundaries, giving honest feedback. They come with one conversation in mind and stay to get better at the next one.
 
 ## Product Purpose
-A daily practice for hard workplace conversations. Each session teaches one technique, rehearses it by voice against an AI counterpart who pushes back, coaches on the user’s exact words, and has them retry the hardest moment and compare both answers on the same rubric. Skill levels and days in a row, derived from saved sessions, give a reason to come back tomorrow.
+A daily practice for hard conversations. Each session teaches one technique, rehearses it by voice against an AI counterpart who pushes back, coaches on the user’s exact words, and has them retry the hardest moment and compare both answers on the same rubric. Skill levels and days in a row, derived from saved sessions, give a reason to come back tomorrow.
 
 ## Capabilities and Constraints
-Two tracks and six scenarios in `config/scenarios.ts`; three are live (ask for a raise, say no to extra work, give difficult feedback) and three are labeled coming soon. Every scenario is an ask met with pushback, so all share one rubric of five skills. Lessons are static copy we wrote, never generated. Turn-based voice with an always-available text fallback. No live scoring. Quotes must be real; rewrites must preserve facts. Scores and skill levels are coaching estimates, not validated measurements. Progress is computed from saved sessions on every request; nothing is seeded or stored separately. Free includes one session per UTC day (`config/plans.ts`, enforced in SQL); Pro is an honestly labeled $12.99/month waitlist with no payment anywhere in the app.
+Two tracks and seven scenarios in `config/scenarios.ts`; four are live (ask for a raise, the flagship; say no to extra work; give difficult feedback; set a boundary with a friend or family member) and three are labeled coming soon. Each scenario can name the counterpart temperaments that fit it. Every scenario is an ask met with pushback, so all share one rubric of five skills. Lessons are static copy we wrote, never generated. Turn-based voice with an always-available text fallback. No live scoring. Quotes must be real; rewrites must preserve facts. Scores and skill levels are coaching estimates, not validated measurements. Progress is computed from saved sessions on every request; nothing is seeded or stored separately. Free includes one session per UTC day (`config/plans.ts`, enforced in SQL); Pro is an honestly labeled $12.99/month waitlist with no payment anywhere in the app.
 
 ## Product Principles
 - Verify each working checkpoint before starting the next.
