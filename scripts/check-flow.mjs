@@ -135,9 +135,12 @@ try {
     console.log("PASS voice services: real TTS audio transcribed by Whisper; physical mic/playback still require browser QA.");
   }
 
+  const moods = ["neutral", "skeptical", "warm", "impatient", "impressed"];
+  const reactions = [bundle.reaction];
   for (const text of fixture.answers) {
     const input = { action: "reply", sessionId: id, requestId: randomUUID(), attempt: 0, text, audioDurationMs: null };
     bundle = await request("/api/turn", input);
+    reactions.push(bundle.reaction);
     const count = bundle.turns.length;
     const retried = await request("/api/turn", input);
     assert.equal(retried.turns.length, count, "Request retry must not duplicate a turn");
@@ -145,6 +148,11 @@ try {
   }
   assert.equal(bundle.turns.length, 5);
   console.log("PASS checkpoint 3: real conversation, saved transcript, idempotent sends.");
+  // Each fresh counterpart reply carries a mood for the character; the tag itself never reaches the saved text.
+  const assistantTurns = bundle.turns.filter((turn) => turn.role === "assistant");
+  assert.ok(reactions.every((reaction) => reaction && moods.includes(reaction.emotion) && assistantTurns.some((turn) => turn.id === reaction.turnId)), "Every new reply needs a reaction");
+  assert.ok(assistantTurns.every((turn) => !/\[[a-z]+\]/i.test(turn.text)), "A mood tag leaked into a saved reply");
+  console.log(`PASS mood: tags stripped from saved replies; reactions ${reactions.map((reaction) => reaction.emotion).join(", ")}.`);
   if (fixture.offRole) {
     const offRole = bundle.turns.filter((turn) => turn.role === "assistant" && fixture.offRole.test(turn.text));
     assert.equal(offRole.length, 0, `The counterpart stepped out of role in ${offRole.length} turn(s); run with --print to read them`);

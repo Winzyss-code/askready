@@ -136,9 +136,28 @@ test("roleplay uses fast model and actual setup without a fake fallback", async 
     assert.match(request.messages[0].content, /Never give coaching/);
     assert.match(request.messages[0].content, /You play the user's manager/);
     assert.doesNotMatch(request.messages[1].content, /desiredRaise/);
-    return completion("What would you like to discuss?");
+    assert.match(request.messages[0].content, /Allowed tags: \[skeptical\] \[impatient\] \[impressed\]/);
+    return completion("[skeptical] What would you like to discuss?");
   };
-  assert.equal(await roleplay(session, []), "What would you like to discuss?");
+  assert.deepEqual(await roleplay(session, []), { text: "What would you like to discuss?", emotion: "skeptical" });
+});
+
+test("roleplay strips the mood tag and keeps the temperament's moods", async () => {
+  const cases = [
+    ["[impatient] Get to the point.", { text: "Get to the point.", emotion: "impatient" }],
+    ["Get to the point.", { text: "Get to the point.", emotion: "neutral" }], // missing
+    ["[furious] Get to the point.", { text: "Get to the point.", emotion: "neutral" }], // not a mood
+    ["[warm] Get to the point.", { text: "Get to the point.", emotion: "neutral" }], // not one of the hard-liner's
+  ];
+  for (const [reply, expected] of cases) {
+    globalThis.fetch = async () => completion(reply);
+    assert.deepEqual(await roleplay(session, transcript), expected);
+  }
+  // The tag does not count toward the length limit; a reply that is only a tag is rejected.
+  globalThis.fetch = async () => completion(`[skeptical] ${Array(65).fill("word").join(" ")}`);
+  assert.equal((await roleplay(session, transcript)).text.split(" ").length, 65);
+  globalThis.fetch = async () => completion("[skeptical]");
+  await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");
 });
 
 test("roleplay output must stay short and complete", async () => {

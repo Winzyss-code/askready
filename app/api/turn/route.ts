@@ -7,9 +7,16 @@ import { assertLlmConfigured, roleplay } from "@/lib/llm";
 import { rateLimit } from "@/lib/rate-limit";
 import { loadSession, requireUser, rpc, userQuery, withSessionLock } from "@/lib/sessions";
 import { turnInputSchema } from "@/lib/validation";
-import type { Session, Turn } from "@/types/domain";
+import type { Emotion } from "@/lib/emotion";
+import type { Session, SessionBundle, Turn } from "@/types/domain";
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// Moods are not stored: the reply's emotion travels with this response only, attached to the newest counterpart turn.
+function withReaction(bundle: SessionBundle, emotion: Emotion): SessionBundle {
+  const latest = bundle.turns.filter((turn) => turn.role === "assistant" && turn.attempt === 0).sort((a, b) => b.sequence - a.sequence)[0];
+  return latest ? { ...bundle, reaction: { turnId: latest.id, emotion } } : bundle;
+}
 
 export async function POST(request: Request) {
   const started = performance.now();
@@ -30,8 +37,8 @@ export async function POST(request: Request) {
         assertLlmConfigured();
         if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new ApiError(503, "STORAGE_NOT_CONFIGURED", "The app owner needs to configure server storage before practice can begin.");
         const opening = await roleplay({ setup: input.setup, scenario_id: input.scenarioId, persona_id: input.personaId }, []);
-        const session = await rpc<Session>("create_practice", { p_user_id: user.id, p_scenario_id: input.scenarioId, p_persona_id: input.personaId, p_setup: input.setup, p_request_id: input.requestId, p_opening: opening });
-        return loadSession(session.id, accessToken);
+        const session = await rpc<Session>("create_practice", { p_user_id: user.id, p_scenario_id: input.scenarioId, p_persona_id: input.personaId, p_setup: input.setup, p_request_id: input.requestId, p_opening: opening.text });
+        return withReaction(await loadSession(session.id, accessToken), opening.emotion);
       }
       const bundle = await loadSession(input.sessionId, accessToken);
       if (bundle.turns.some((turn) => turn.request_id === input.requestId)) return bundle;
@@ -43,8 +50,9 @@ export async function POST(request: Request) {
       const sequence = input.attempt === 0 ? Math.max(-1, ...original.map((t) => t.sequence)) + 1 : 0;
       const next: Turn = { id: input.requestId, request_id: input.requestId, session_id: input.sessionId, role: "user", text: input.text, audio_duration_ms: input.audioDurationMs ?? null, attempt: input.attempt, sequence, created_at: new Date().toISOString() };
       const reply = input.attempt === 0 ? await roleplay(bundle.session, [...original, next]) : null;
-      await rpc("append_exchange", { p_user_id: user.id, p_session_id: input.sessionId, p_request_id: input.requestId, p_text: input.text, p_audio_duration_ms: input.audioDurationMs ?? null, p_attempt: input.attempt, p_expected_sequence: sequence, p_reply: reply });
-      return loadSession(input.sessionId, accessToken);
+      await rpc("append_exchange", { p_user_id: user.id, p_session_id: input.sessionId, p_request_id: input.requestId, p_text: input.text, p_audio_duration_ms: input.audioDurationMs ?? null, p_attempt: input.attempt, p_expected_sequence: sequence, p_reply: reply?.text ?? null });
+      const saved = await loadSession(input.sessionId, accessToken);
+      return reply ? withReaction(saved, reply.emotion) : saved;
     });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return errorResponse(error); }

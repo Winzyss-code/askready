@@ -6,3 +6,50 @@ export type Emotion = (typeof emotions)[number];
 export function isEmotion(value: unknown): value is Emotion {
   return typeof value === "string" && (emotions as readonly string[]).includes(value);
 }
+
+// Longest text we wait on for a closing bracket before deciding the reply has no tag.
+const TAG_LIMIT = 24;
+const anyTag = new RegExp(`\\s*\\[(?:${emotions.join("|")})\\]\\s*`, "gi");
+
+/**
+ * Reads the leading mood tag from a reply that may arrive in pieces. `push` returns the text that is safe to
+ * show or speak so far: nothing until the tag is resolved, then everything after it. The emotion is known as
+ * soon as the tag closes, before any of the reply is released. A missing, unknown or disallowed tag is neutral,
+ * and any leading bracketed tag is removed either way, so a label never reaches the transcript or the voice.
+ */
+export function createEmotionReader(allowed: readonly Emotion[] = emotions) {
+  let pending = "";
+  let settled = false;
+  let emotion: Emotion = "neutral";
+  const release = (rest: string) => { settled = true; pending = ""; return rest.trimStart(); };
+  return {
+    push(chunk: string): string {
+      if (settled) return chunk;
+      pending += chunk;
+      const start = pending.trimStart();
+      if (!start) return "";
+      if (!start.startsWith("[")) return release(start);
+      const close = start.indexOf("]");
+      if (close === -1) return start.length > TAG_LIMIT ? release(start) : "";
+      const tag = start.slice(1, close).trim().toLowerCase();
+      if (isEmotion(tag) && allowed.includes(tag)) emotion = tag;
+      return release(start.slice(close + 1));
+    },
+    /** Call once the reply is complete: returns whatever was still held back. */
+    end(): string {
+      if (settled) return "";
+      const rest = pending.trimStart();
+      settled = true;
+      pending = "";
+      return /^\[[^\]]*$/.test(rest) && rest.length <= TAG_LIMIT ? "" : rest;
+    },
+    get emotion() { return emotion; },
+  };
+}
+
+/** A whole reply: its emotion, and its text with the tag (and any stray mood tag later on) removed. */
+export function parseEmotion(reply: string, allowed: readonly Emotion[] = emotions) {
+  const reader = createEmotionReader(allowed);
+  const text = (reader.push(reply) + reader.end()).replace(anyTag, " ").replace(/\s{2,}/g, " ").trim();
+  return { emotion: reader.emotion, text };
+}

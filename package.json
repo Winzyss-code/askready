@@ -16,7 +16,7 @@
     "test:foundation:live": "node scripts/check-foundation.mjs --live",
     "test:flow:live": "node scripts/check-flow.mjs",
     "check:services": "node scripts/check-services.mjs",
-    "test": "node --test scripts/test-scoring.mjs scripts/test-llm.mjs",
+    "test": "node --test scripts/test-scoring.mjs scripts/test-llm.mjs scripts/test-emotion.mjs",
     "test:browser": "playwright test"
   },
   "dependencies": {
