@@ -15,6 +15,8 @@ type Props = {
   onBusyChange?: (active: boolean) => void;
   onStateChange?: (state: ComposerState) => void;
   onMeter?: (analyser: AnalyserNode | null) => void;
+  /** True while an error or an unavailable microphone is being shown to the user. */
+  onTroubleChange?: (trouble: boolean) => void;
   /** Shown in place of the default hint while the composer is disabled. */
   waitingHint?: string | null;
 };
@@ -24,7 +26,7 @@ const MAX_SECONDS = 90;
 const RING = 2 * Math.PI * 45.5;
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 
-export function VoiceComposer({ onSubmit, disabled, sessionId, attempt, onBusyChange, onStateChange, onMeter, waitingHint }: Props) {
+export function VoiceComposer({ onSubmit, disabled, sessionId, attempt, onBusyChange, onStateChange, onMeter, onTroubleChange, waitingHint }: Props) {
   const [draft, setDraft] = useState("");
   const [state, setState] = useState<ComposerState>("idle");
   const [elapsed, setElapsed] = useState(0);
@@ -54,6 +56,10 @@ export function VoiceComposer({ onSubmit, disabled, sessionId, attempt, onBusyCh
     onMeter?.(analyser);
     return () => { onMeter?.(null); };
   }, [analyser, onMeter]);
+  useEffect(() => {
+    onTroubleChange?.(Boolean(error) || voiceUnavailable);
+    return () => { onTroubleChange?.(false); };
+  }, [error, voiceUnavailable, onTroubleChange]);
   useEffect(() => { if (voiceUnavailable) answerField.current?.focus(); }, [voiceUnavailable]);
 
   const releaseMedia = () => {

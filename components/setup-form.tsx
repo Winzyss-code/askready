@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Check, Handshake, HeartHandshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { personasFor } from "@/config/personas";
 import { FreeAllowance } from "@/config/plans";
@@ -39,13 +39,15 @@ function read(form: HTMLFormElement) {
   return { parsed, failing };
 }
 
-export function SetupForm({ scenario, disabled = false, onStart }: {
+export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange }: {
   scenario: Scenario;
   disabled?: boolean;
   onStart: (setup: Setup, personaId: string) => Promise<void>;
+  onPersonaChange?: (personaId: string) => void;
 }) {
   const personas = personasFor(scenario);
   const [personaId, setPersonaId] = useState<string>(personas[0].id);
+  useEffect(() => { onPersonaChange?.(personaId); }, [personaId, onPersonaChange]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [answered, setAnswered] = useState<string[]>([]);
 

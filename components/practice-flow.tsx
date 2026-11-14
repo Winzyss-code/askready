@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, CircleAlert, Square, Timer, Volume2 } from "lucide-react";
-import { getPersona } from "@/config/personas";
+import { getPersona, personasFor } from "@/config/personas";
 import type { Scenario } from "@/config/scenarios";
 import { api, ClientError, ensureClientAuth, errorMessage } from "@/lib/client";
 import { cx } from "@/lib/cx";
 import type { Session, SessionBundle, Setup, Turn } from "@/types/domain";
 import { LessonCard } from "@/components/lesson-card";
-import { Character, type CharacterState } from "@/components/Character";
+import { Character, type CharacterEmotion, type CharacterState } from "@/components/Character";
+import type { Emotion } from "@/lib/emotion";
 import { DailyLimit, useProgress } from "@/components/progress-panel";
 import { SetupForm } from "@/components/setup-form";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,10 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const [busy, setBusy] = useState<"starting" | "replying" | "feedback" | null>(null);
   const [composerBusy, setComposerBusy] = useState(false);
   const [composerState, setComposerState] = useState<ComposerState>("idle");
+  const [composerTrouble, setComposerTrouble] = useState(false);
+  // The mood the model gave each fresh reply, by turn id. Not stored, so replies loaded from the server are neutral.
+  const [moods, setMoods] = useState<Record<string, Emotion>>({});
+  const [setupPersona, setSetupPersona] = useState(() => personasFor(scenario)[0]?.id ?? "");
   const [meter, setMeter] = useState<AnalyserNode | null>(null);
   const loadedId = useRef<string | null>(null);
   const operation = useRef<{ payload: string; id: string } | null>(null);
@@ -159,6 +164,12 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
     return operation.current.id;
   }
 
+  function accept(saved: SessionBundle) {
+    const reaction = saved.reaction;
+    if (reaction) setMoods((current) => ({ ...current, [reaction.turnId]: reaction.emotion }));
+    setBundle(saved);
+  }
+
   async function start(setup: Setup, personaId: string) {
     if (busy) return;
     setBusy("starting"); setError(null); stop();
@@ -166,7 +177,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
     try {
       const saved = await api<SessionBundle>("/api/turn", { ...body, requestId: requestId(body) });
       loadedId.current = saved.session.id;
-      setBundle(saved);
+      accept(saved);
       operation.current = null;
       router.replace(`/practice/${scenario.id}?session=${saved.session.id}`, { scroll: false });
     } catch (err) {
@@ -194,7 +205,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
     let saved: SessionBundle;
     try {
       saved = await api<SessionBundle>("/api/turn", { ...body, requestId: requestId(body) });
-      setBundle(saved);
+      accept(saved);
       operation.current = null;
     } catch (err) {
       setError(errorMessage(err));
@@ -237,6 +248,10 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           <h1 className="display text-2xl lg:text-3xl">{scenario.title}</h1>
           <p className="mt-4 text-lg text-neutral-600">{scenario.description}</p>
           <p className="mt-3 max-w-measure text-neutral-500">Read the technique, answer five short questions, then talk it through with an AI {counterpart}. Coaching comes after you finish, not while you speak.</p>
+          <div className="mt-8 flex items-center gap-4">
+            <Character state="idle" emotion={error ? "concerned" : "warm"} persona={setupPersona} size="md" />
+            <p className="text-sm text-neutral-500">{getPersona(setupPersona)?.name ?? `Your ${counterpart}`} is ready when you are.</p>
+          </div>
           {recent.length > 0 && !(limited && recent[0].id === progress?.today.sessionId) && <Card as="section" className="mt-8 p-5" aria-label="Previous practice">
             <h2 className="font-semibold">Pick up where you left off</h2>
             <p className="mt-1 text-sm text-neutral-500">Your latest session · {new Date(recent[0].created_at).toLocaleDateString()}</p>
@@ -251,7 +266,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           </div> : limited && progress ? <DailyLimit progress={progress} scenario={scenario} /> : <>
             <h2 className="display mb-8 border-t border-ink pt-8 text-xl">Set up your rehearsal</h2>
             {error && <Notice tone="error" role="alert" className="mb-8">{error}</Notice>}
-            <SetupForm scenario={scenario} disabled={busy !== null} onStart={start} />
+            <SetupForm scenario={scenario} disabled={busy !== null} onStart={start} onPersonaChange={setSetupPersona} />
           </>}
         </div>
       </div>
@@ -261,7 +276,15 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const finished = Boolean(initialFeedback && !isRetry);
   const canAnswer = !initialFeedback && userCount < 6 || isRetry && userCount === 0;
   const recording = composerState === "recording";
-  const managerState: CharacterState = busy !== null ? "thinking" : recording ? "listening" : isSpeaking ? "speaking" : "idle";
+  // Thinking starts the moment a recording ends, through transcription and sending, until the reply arrives.
+  // Speaking needs a voice that is actually sounding; while the audio loads the character just shows its reaction.
+  const aloud = isSpeaking && (voice === "tts" || voice === "browser");
+  const managerState: CharacterState = busy !== null || composerState === "transcribing" || composerState === "sending" ? "thinking" : recording ? "listening" : aloud ? "speaking" : "idle";
+  // The mood comes only from the model's tag on the reply, never from judging the user. Errors look concerned;
+  // text-only playback stays neutral.
+  const managerEmotion: CharacterEmotion = error || composerTrouble ? "concerned"
+    : managerState === "thinking" || voice === "none" ? "neutral"
+    : moods[spokenTurn?.id ?? ""] ?? "neutral";
   const stateLabel = busy === "feedback" ? "Reviewing your words and preparing specific coaching…"
     : busy === "replying" ? `${manager} is thinking…`
     : busy === "starting" ? "Preparing your conversation…"
@@ -297,7 +320,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
 
           <section className="pt-8 lg:pt-10" aria-label={isRetry ? "The same objection" : `Your ${counterpart}`}>
             <div className="flex items-center gap-4 lg:gap-6">
-              <Character state={managerState} mouthOpen={mouth} analyser={meter} persona={bundle.session.persona_id} size="md" className="lg:[--char:7rem]" label={`${manager}, ${stateLabel.toLowerCase()}`} />
+              <Character state={managerState} emotion={managerEmotion} mouthOpen={mouth} analyser={meter} persona={bundle.session.persona_id} size="md" className="lg:[--char:7rem]" label={`${manager}, ${stateLabel.toLowerCase()}`} />
               <div className="min-w-0">
                 <h2 className="font-semibold">{isRetry ? `${manager} said` : <>{manager}<span className="font-normal text-neutral-500"> · {scenario.counterpart.label}</span></>}</h2>
                 <p role="status" aria-live="polite" className="text-sm text-neutral-500">{stateLabel}</p>
@@ -322,7 +345,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
 
           {canAnswer ? (
             <div className="-mx-4 mt-8 border-t border-neutral-200 bg-paper px-4 pb-4 pt-4 sm:-mx-8 sm:px-8 lg:mx-0 lg:mt-10 lg:px-0 lg:pt-6 max-lg:[@media(min-height:44rem)]:sticky max-lg:[@media(min-height:44rem)]:bottom-0">
-              <VoiceComposer key={`${bundle.session.id}:${isRetry ? 1 : 0}`} onSubmit={reply} onBusyChange={setComposerBusy} onStateChange={setComposerState} onMeter={setMeter} disabled={busy !== null || isSpeaking} waitingHint={isSpeaking ? `${manager} is speaking. Answer when they finish, or stop playback.` : null} sessionId={bundle.session.id} attempt={isRetry ? 1 : 0} />
+              <VoiceComposer key={`${bundle.session.id}:${isRetry ? 1 : 0}`} onSubmit={reply} onBusyChange={setComposerBusy} onStateChange={setComposerState} onMeter={setMeter} onTroubleChange={setComposerTrouble} disabled={busy !== null || isSpeaking} waitingHint={isSpeaking ? `${manager} is speaking. Answer when they finish, or stop playback.` : null} sessionId={bundle.session.id} attempt={isRetry ? 1 : 0} />
             </div>
           ) : null}
 
