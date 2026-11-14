@@ -3,8 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Turn } from "@/types/domain";
 
-export function useSpeech(sessionId: string) {
+// Which voice is actually sounding: our TTS, the browser's, or none at all (text only). Null while nothing has started.
+export type Voice = "tts" | "browser" | "none" | null;
+
+/** `connect` is given each reply's audio element before it plays, e.g. to route it through an analyser. */
+export function useSpeech(sessionId: string, connect?: (player: HTMLAudioElement) => void) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voice, setVoice] = useState<Voice>(null);
+  const connectRef = useRef(connect);
+  useEffect(() => { connectRef.current = connect; }, [connect]);
   const [notice, setNotice] = useState<string | null>(null);
   const run = useRef(0);
   const abort = useRef<AbortController | null>(null);
@@ -32,7 +39,7 @@ export function useSpeech(sessionId: string) {
 
   const stop = useCallback(() => {
     cancel();
-    if (mounted.current) setIsSpeaking(false);
+    if (mounted.current) { setIsSpeaking(false); setVoice(null); }
   }, [cancel]);
 
   useEffect(() => {
@@ -46,6 +53,7 @@ export function useSpeech(sessionId: string) {
     const active = () => mounted.current && run.current === current;
     if (!turn.text.trim() || !active()) return;
     setIsSpeaking(true);
+    setVoice(null);
     setNotice(null);
     const controller = new AbortController();
     abort.current = controller;
@@ -55,6 +63,7 @@ export function useSpeech(sessionId: string) {
       if (!active()) return;
       if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
         setNotice("Audio is unavailable in this browser. You can read the manager’s reply above.");
+        setVoice("none");
         return;
       }
       setNotice("Using your browser’s voice. The manager’s reply is also available as text.");
@@ -72,6 +81,7 @@ export function useSpeech(sessionId: string) {
           resolve();
         };
         const failed = () => {
+          if (active()) setVoice("none");
           if (active()) setNotice("Playback was blocked or unavailable. Select Hear the manager to try again, or read the reply above.");
           end();
         };
@@ -81,7 +91,7 @@ export function useSpeech(sessionId: string) {
         const endTimeout = window.setTimeout(() => {
           if (active()) { window.speechSynthesis.cancel(); failed(); }
         }, 45_000);
-        utterance.onstart = () => { started = true; clearTimeout(startTimeout); };
+        utterance.onstart = () => { started = true; clearTimeout(startTimeout); if (active()) setVoice("browser"); };
         utterance.onend = end;
         utterance.onerror = failed;
         finish.current = end;
@@ -114,7 +124,9 @@ export function useSpeech(sessionId: string) {
         }, 45_000);
         finish.current = end;
         player.onended = end;
+        player.onplaying = () => { if (active()) setVoice("tts"); };
         player.onerror = () => { clearTimeout(playbackTimeout); reject(new Error("Playback failed")); };
+        connectRef.current?.(player);
         player.play().catch((error: unknown) => { clearTimeout(playbackTimeout); reject(error); });
       });
     } catch {
@@ -131,9 +143,11 @@ export function useSpeech(sessionId: string) {
         abort.current = null;
         finish.current = null;
         setIsSpeaking(false);
+        // Keep "none" so the counterpart stays still after a failed playback; otherwise nothing is sounding now.
+        setVoice((current) => current === "none" ? "none" : null);
       }
     }
   }, [cancel, sessionId]);
 
-  return { speak, stop, isSpeaking, notice };
+  return { speak, stop, isSpeaking, voice, notice };
 }

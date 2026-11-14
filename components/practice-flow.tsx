@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Notice, Skeleton } from "@/components/ui/feedback";
 import { VoiceComposer, type ComposerState } from "@/components/voice-composer";
 import { useSpeech } from "@/hooks/use-speech";
+import { useMouthSync } from "@/lib/useMouthSync";
 
 function Transcript({ turns, manager, empty }: { turns: Turn[]; manager: string; empty: string }) {
   const [open, setOpen] = useState(true);
@@ -91,7 +92,13 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const loadedId = useRef<string | null>(null);
   const operation = useRef<{ payload: string; id: string } | null>(null);
   const lastSpoken = useRef<string | null>(null);
-  const { speak, stop, isSpeaking, notice } = useSpeech(bundle?.session.id ?? "");
+  // Speech needs the mouth's audio hook-up, and the mouth needs to know when speech is sounding: forward through a ref.
+  const connectAudio = useRef<((player: HTMLAudioElement) => void) | null>(null);
+  const forwardAudio = useCallback((player: HTMLAudioElement) => connectAudio.current?.(player), []);
+  const { speak, stop, isSpeaking, voice, notice } = useSpeech(bundle?.session.id ?? "", forwardAudio);
+  // The mouth moves only while a voice is actually sounding, not while the audio is still loading.
+  const { mouth, connect } = useMouthSync(isSpeaking && (voice === "tts" || voice === "browser"));
+  useEffect(() => { connectAudio.current = connect; }, [connect]);
   // Only the setup stage needs to know whether today's free session is used.
   const { progress, loading: progressLoading, retry: reloadProgress } = useProgress(!initialSessionId);
 
@@ -290,7 +297,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
 
           <section className="pt-8 lg:pt-10" aria-label={isRetry ? "The same objection" : `Your ${counterpart}`}>
             <div className="flex items-center gap-4 lg:gap-6">
-              <Character state={managerState} analyser={meter} persona={bundle.session.persona_id} size="md" className="lg:[--char:7rem]" label={`${manager}, ${stateLabel.toLowerCase()}`} />
+              <Character state={managerState} mouthOpen={mouth} analyser={meter} persona={bundle.session.persona_id} size="md" className="lg:[--char:7rem]" label={`${manager}, ${stateLabel.toLowerCase()}`} />
               <div className="min-w-0">
                 <h2 className="font-semibold">{isRetry ? `${manager} said` : <>{manager}<span className="font-normal text-neutral-500"> · {scenario.counterpart.label}</span></>}</h2>
                 <p role="status" aria-live="polite" className="text-sm text-neutral-500">{stateLabel}</p>
