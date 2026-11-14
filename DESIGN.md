@@ -207,17 +207,11 @@ components:
     textColor: "{colors.neutral-600}"
     rounded: "{rounded.md}"
     padding: "16px"
-  manager-disc:
+  counterpart-character:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.paper}"
-    rounded: "{rounded.full}"
+    accentColor: "{colors.marker}"
     size: "7rem"
-  manager-disc-listening:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-  manager-disc-speaking:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.marker}"
   record-control:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.paper}"
@@ -254,7 +248,7 @@ Recorded from the shipped build (`app/globals.css`, `app/layout.tsx`, `component
 
 A rehearsal is game tape. The coach marks the moment, you run it again, and the board shows what changed. The surface is a whiteboard: chalk-white ground, one dry-erase navy for everything written and everything pressed, and a single telestrator yellow that behaves like a marker stroke over the tape. Sections are divided by court-line hairlines, numbers are set like a scoreboard, and nothing glows.
 
-The sports idea lives in structure and marks only. Copy stays plain and warm ("attempt", never "rep"); there are no mascots, no celebration, no gradients and no glass. Practice and results screens are operational and quiet; the landing and pricing pages are built from the same parts, including a still of the real recorder as the hero illustration, so the first thing shown is the thing done.
+The sports idea lives in structure and marks only. Copy stays plain and warm ("attempt", never "rep"); the counterpart character is the only figure, and there is no celebration, no gradients and no glass. Practice and results screens are operational and quiet; the landing and pricing pages are built from the same parts, including a still of the real recorder as the hero illustration, so the first thing shown is the thing done.
 
 Scores are coaching estimates and are always labelled as such; example content on marketing surfaces is labelled illustrative. Lower scores are stated as plainly as gains.
 
@@ -262,7 +256,7 @@ Scores are coaching estimates and are always labelled as such; example content o
 - Flat chalk paper, navy ink, one yellow marker; no gradients, no glass, no glow.
 - Hairlines divide; a card is a discrete object, never a default wrapper.
 - Scoreboard figures: display face, tabular lining numerals, tight to an edge.
-- One manager disc whose silhouette changes with state; one record control that is also a clock.
+- One counterpart character whose posture and face change with state and mood; one record control that is also a clock.
 - Short ease-out transitions; exactly one rewarding motion (the attempt-2 bars).
 - State is always readable from shape plus a text label, never from colour or motion alone.
 
@@ -271,7 +265,7 @@ Scores are coaching estimates and are always labelled as such; example content o
 A two-colour system on a tinted white: navy ink does the work, yellow marks, and every neutral leans towards the ink's hue.
 
 ### Primary
-- **Dry-Erase Ink** (`ink`): all body and display type, primary buttons, the manager disc, score-bar fills, filled progress pips, and the one dark panel a page may carry. `ink-hover` is its only lighter step, used on hover of ink surfaces.
+- **Dry-Erase Ink** (`ink`): all body and display type, primary buttons, the counterpart character, score-bar fills, filled progress pips, and the one dark panel a page may carry. `ink-hover` is its only lighter step, used on hover of ink surfaces.
 
 ### Secondary
 - **Telestrator Yellow** (`marker`): the mark. It appears as the stroke under the coach's rewrite and under the few words that matter (the hero phrase, the stated intention, the attempt-2 average), as the recording state of the record control and its clock arc, as a positive delta badge, as the chosen/live indicator (selected manager tick, "Available now", "Focused retry"), as the speaking bars of the manager disc, as the accent button on an ink panel, and as the focus halo and text selection. `marker-hover` is its hover step on the accent button.
@@ -281,7 +275,7 @@ A two-colour system on a tinted white: navy ink does the work, yellow marks, and
 
 ### Neutral
 - **Chalk Paper** (`paper`): the page ground and the text colour on ink.
-- **Board Surface** (`surface`): cards, fields and the listening disc; one step brighter than paper.
+- **Board Surface** (`surface`): cards and fields; one step brighter than paper.
 - **neutral-100**: hover grounds, the user's transcript bubble, info notices, neutral badges, disabled field ground.
 - **neutral-200**: hairlines, card borders, bar tracks, skeletons, disabled button ground.
 - **neutral-300**: stronger rules between list rows, empty pips, the resting record-ring track, resting waveform dots, dashed empty-state border.
@@ -346,7 +340,7 @@ Flat. Depth is tonal: paper, then the slightly brighter surface inside a 1px `ne
 - **Lift** (`box-shadow: 0 8px 24px -8px rgb(20 33 58 / 0.2)`): the retry invitation panel on the feedback page.
 - **Float** (`box-shadow: 0 28px 56px -20px rgb(20 33 58 / 0.32)`): the product still in the landing hero, the only object presented as a picture of the product.
 
-Both are ink-tinted. Rings drawn with `box-shadow` (the focus halo, the manager disc's state rings, the outline badge, the selected manager card's inset ring) are outlines, not elevation.
+Both are ink-tinted. Rings drawn with `box-shadow` (the focus halo, the outline badge, the selected manager card's inset ring) are outlines, not elevation.
 
 ### Named Rules
 **The Flat Board Rule.** Cards, fields, buttons and badges carry no shadow at rest or on hover. A shadow is reserved for at most one object per page that is deliberately lifted off the board.
@@ -357,7 +351,7 @@ Three corner radii and the circle. Small marks (badges, skeleton lines, link foc
 
 Borders are always 1px. `neutral-200` is the hairline and the card edge; `neutral-300` rules list rows; `neutral-400` outlines controls; ink closes the comparison table above its average row and outlines the chosen manager card. A dashed `neutral-300` border appears only on an empty state.
 
-The recurring silhouette is a disc with short vertical bars: the brand mark (three yellow bars on an ink disc), the manager at rest, the manager speaking and the microphone waveform are all the same figure.
+The recurring silhouette is a disc with short vertical bars: the brand mark (three yellow bars on an ink disc) and the microphone waveform are the same figure. The counterpart character keeps the disc's ink mass and adds a face.
 
 **The Marker Stroke.** The highlight is a flat yellow band across the lower half of the text line (0.5em tall, anchored at 88% of the line box), extended 0.15em past the text at each end and cloned across line breaks. It is never a full background, an underline or a box.
 
@@ -416,14 +410,14 @@ A row of 6px-tall fully round segments, ink when done and `neutral-300` when not
 ### Score bar
 An 8px fully round track in `neutral-200` with an ink fill (or `neutral-400` for attempt 1). As a summary row: weight-600 label in a 10rem column, bar, then a 20px figure right-aligned to the edge; on phones the label and figure share a line above the bar.
 
-### Manager disc (signature)
-One ink disc, five marks inside it, sized in em so it scales as one figure: 7rem on the practice stage at desktop, 4.5rem on phones and in the hero still, 2.5rem available. The four states differ in silhouette, so they are distinct with motion off:
-- **Idle:** five low rounded bars in paper on ink, stepped short-medium-tall-medium-short: a resting waveform.
-- **Listening:** the disc inverts to surface with its ink border, the marks collapse to a single ink dot, and a marker ring surrounds the disc. The ring's width and the dot's scale follow the live microphone level.
-- **Thinking:** three paper dots on ink, inside a thin `neutral-400` orbit ring set off by a paper gap. The dots step upward in turn (1.2s loop).
-- **Speaking:** five tall bars in marker on ink, inside a marker ring with a fine ink edge. The bars breathe in height (0.88s loop, staggered).
+### Counterpart character (signature)
+One small ink creature drawn in a 100-unit SVG (`components/Character.tsx`): a rounded body, a short antenna with a marker tip, two paper eyes with ink pupils, paper brows and a paper mouth. It is not human and has no other colours. Sizes match the old disc: 7rem on the practice stage at desktop, 4.5rem on phones, on the setup step and in the hero still. The box never changes size between states, so nothing around it moves.
+- **States (posture and gaze):** idle breathes slowly (4.2s) and blinks every three to six seconds; listening leans in, the pupils widen, and it nods with the live microphone level; thinking tilts back, looks up and aside, with three `neutral-400` dots stepping upward; speaking bobs gently while the mouth follows the voice.
+- **Moods (brows, mouth, cheeks):** neutral; skeptical (one brow up, a sideways mouth); warm (soft brows, a smile, marker cheeks); impatient (brows pulled down, a flat mouth, a small repeated tap); impressed (brows up, a smile, marker cheeks); concerned (brows pulled up, a small frown), which is ours alone and shows only beside an error or an unavailable microphone.
+- **Temperaments:** one small difference each. The hard-liner has heavy, lowered brows; the deflector soft arched brows; the skeptic thin brows and `neutral-300` glasses; the guilt-tripper brows set high in the middle.
+- **Where moods come from:** only from the mood tag the model puts on each reply, limited to the moods that fit the temperament. The character never reacts to how well the user is doing. Text-only playback stays neutral and never moves its mouth.
 
-Marks morph between states on a short spring; disc colours change over 240ms. The disc is decorative to assistive technology: a text state label beside it ("Your turn", "Listening", "Speaking", "Your manager is thinking…") is the live status.
+Its mouth is drawn outside React, one frame at a time, from the playing audio. The character is decorative when unlabelled; on the practice stage it carries an accessible name with the counterpart and state, and the text state label beside it ("Your turn", "Listening", "Speaking", "Your manager is thinking…") is still the live status.
 
 ### Record control (signature)
 A 96px ring around an 80px disc, with a weight-600 label beneath that says what a press will do. The ring is a 90-second clock: a marker arc fills clockwise from the top as the limit approaches.
@@ -444,9 +438,9 @@ Secondary detail (score reasoning, the original answer, the full transcript) sit
 
 ### Motion
 - **Transitions:** 150 to 250ms on one ease-out curve, `cubic-bezier(0.22, 1, 0.36, 1)`; the default is 180ms. Colour and border changes use 180ms, presses 150ms, the recording dim and label fade 200ms, disc colour changes and the settle-in 240ms.
-- **Signal-bound motion** runs only while its state is true: the listening ring (90ms linear, tracking the microphone), the clock arc (linear between ticks), the thinking and speaking loops, the skeleton shimmer.
+- **Signal-bound motion** runs only while its state is true: the character's breathing, blinking, nods, thinking dots and mouth, the clock arc (linear between ticks), the skeleton shimmer.
 - **The one rewarding motion:** on the comparison, each attempt-2 bar grows out from the attempt-1 value when it scrolls into view (0.7s, same curve, staggered 80ms per row from 150ms), and the average delta settles in after 500ms. Nothing else animates on arrival.
-- **Reduced motion:** all CSS animations and transitions are switched off and the scripted motions run at zero duration; the listening ring holds its resting width and the waveform samples more slowly. The rendered DOM is identical in both modes, and every state remains readable from shape and label.
+- **Reduced motion:** all CSS animations and transitions are switched off and the scripted motions run at zero duration; the character holds still expressions (speaking is a half-open mouth, with no blinking or nodding) and the waveform samples more slowly. The rendered DOM is identical in both modes, and every state remains readable from shape and label.
 
 ## Do's and Don'ts
 
@@ -454,7 +448,7 @@ Secondary detail (score reasoning, the original answer, the full transcript) sit
 - **Do** keep yellow for the mark: the coach's highlight, the recorder, a gain, the one chosen or live thing, focus. Put ink on or beside it every time.
 - **Do** divide sections with a 1px hairline and reach for a card only when the content is a discrete object (an improvement, a persona, a plan, a saved session).
 - **Do** set every score, clock, count and price in tabular numerals, with ranked figures in the display face and their unit in small `neutral-500` text.
-- **Do** give every state a shape and a text label. The manager disc and record control must stay distinguishable in a still frame.
+- **Do** give every state a shape and a text label. The character's states and the record control must stay distinguishable in a still frame.
 - **Do** show loading as a skeleton in the shape of the coming content, with a status sentence.
 - **Do** keep the text path equal to voice: the field sits in the same dock as the recorder and is always available.
 - **Do** state a lower score as plainly as a gain (warning delta badge), and label estimates and illustrative examples as what they are.
@@ -469,6 +463,6 @@ Secondary detail (score reasoning, the original answer, the full transcript) sit
 - **Don't** use uppercase, letter-spaced labels or the display face below 16px.
 - **Don't** use a spinner, or animate anything on arrival other than the attempt-2 bars and their delta.
 - **Don't** change what is rendered under reduced motion; change only timing.
-- **Don't** let sports language into the copy, or add mascots or celebration.
+- **Don't** let sports language into the copy, add any figure besides the counterpart character, or add celebration.
 - **Don't** put more than one ink panel on a page, or place Finish beside the record control.
 - **Don't** add a dark theme by inverting these tokens; none was designed or built.

@@ -134,6 +134,9 @@ Comparison uses `feedback[0].focus.baselineScores` for the single original answe
 
 ## Voice and delivery observations
 
+The counterpart is drawn as a small animated character (`components/Character.tsx`) that listens, thinks and speaks. Its mouth follows the reply's real audio through a Web Audio analyser (`lib/useMouthSync.ts`). The analyser is used only once a tap or keypress has started an audio context, because routing audio through a suspended context would play silence. With browser speech or without Web Audio, the mouth follows a speech-like pattern instead; with text-only playback it stays still. Its mood comes from a tag the model puts at the start of each reply (`[skeptical] …`), limited to the moods that fit the chosen temperament. The tag is removed before the reply is saved, shown or spoken (`lib/emotion.ts`). Moods are not stored, so a reply reloaded later shows as neutral. Replies are not streamed today; the tag reader also accepts a reply in pieces, and `scripts/test-emotion.mjs` tests tags split across chunks.
+
+
 The interaction is turn-based. The browser chooses a supported MediaRecorder MIME type (including WebM/MP4), records for up to **90 seconds**, and limits uploads to **3.5 MB**. The API also bounds multipart bytes before parsing. Mic denial or an unsupported recorder leaves text entry available. Transcription is server-side Whisper; typed answers use the same practice flow.
 
 Manager speech is **AI-generated**, disclosed in the interface. OpenAI TTS falls back to browser `speechSynthesis`, then text-only. Playback can require a user gesture on mobile browsers; the UI permits replay. Sessions persist transcripts and results, not raw audio files. Audio and text are still sent to OpenAI for processing and are subject to that provider's data policies. Browser fallback speech may use the browser/OS speech provider.
@@ -152,7 +155,7 @@ Checkpoint 1 verified on November 14, 2026: lint, TypeScript, production build, 
 npm run check                     # ESLint, TypeScript, production build
 npm run test:foundation           # Build first; compiled route/error smoke tests
 npm run test:foundation:live      # Build first; real Supabase Auth + storage check
-npm test                         # Scoring, progress and LLM contract regressions
+npm test                         # Scoring, progress, mood-tag and LLM contract regressions
 npm run check:services           # Read-only schema and provider access preflight
 npm run test:flow:live            # Running app; real AI, DB, retry, progress, quota, waitlist
 node scripts/check-secrets.mjs   # Build first; private-key scan of repo/client files
@@ -207,6 +210,7 @@ Checked against a **local production build** (`next build` and `next start`) usi
 - `npm run check` passed. `npm test`: 21 passed, including five for `lib/progress.ts` (empty account, an unfinished session, days in a row across the UTC boundary, level boundaries and averaging, next-conversation order).
 - The live flow passed for all three live scenarios (`raise`, `pushback`, `feedback`), including a new check that `/api/progress` matches the saved first-attempt scores and that a second account sees no progress.
 - The browser test passed for the raise scenario.
+- The counterpart character was added afterwards. With mocked APIs in Chrome: real audio moves its mouth and silent audio does not, so the analyser is driving it; the analyser is connected to the speakers; a reply shows thinking and then the model's mood; text-only playback stays neutral and still; a denied microphone shows concern. At 390px with a 4x CPU throttle it held 60 fps while speaking, and its box did not move between states. That was a desktop browser, not a real phone. Live: mood tags came back on 18 of 18 sampled replies and fit each temperament after one prompt adjustment; the raise and boundary live flows passed with the new mood checks.
 - Later the same day, a fourth live scenario, “Set a boundary with a friend or family member”, was added. Its live flow passed against real models, including a new check that the counterpart never uses workplace or manager words. The first attempts failed: the counterpart sometimes took on the user’s side of the story and ran past the three-sentence limit, until the scenario prompt said whose side the setup is written from. In a 24-turn sample after that fix, about one reply in twelve still slipped partly into the user’s side. After the change, the raise and pushback flows passed again. The browser test failed once at the Whisper transcription step and passed on the rerun.
 - The daily-limit card was checked once in a fresh Chrome profile with one real session: no card for a new account; card instead of the form in a different scenario, both while the session was open and after coaching; its links to the session, the coaching and pricing worked; a stale client that submitted the form anyway got `DAILY_LIMIT` from the server and then the card.
 - Not rerun: the SQL tests (no SQL changed), the foundation tests, the voice round trip for the two new scenarios, and any physical-device check. Not measured: whether anyone comes back the next day.
