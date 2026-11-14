@@ -1,0 +1,42 @@
+{
+  "name": "askready",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run build",
+    "test:foundation": "node scripts/check-foundation.mjs",
+    "test:foundation:live": "node scripts/check-foundation.mjs --live",
+    "test:flow:live": "node scripts/check-flow.mjs",
+    "check:services": "node scripts/check-services.mjs",
+    "test": "node --test scripts/test-scoring.mjs scripts/test-llm.mjs",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "framer-motion": "14.14.0",
+    "lucide-react": "1.73.0",
+    "next": "16.4.6",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "server-only": "0.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.4.6",
+    "tailwindcss": "4.3.5",
+    "typescript": "5.9.3"
+  }
+}

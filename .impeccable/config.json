@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-11-14T12:19:59.557Z",
+        "reason": "Agent decision: Arial is intentional in the checkpoint-1 functional scaffold. PRODUCT.md and README.md explicitly defer final visual design until the core flow works; revisit this exception at the design checkpoint."
+      }
+    ]
+  }
+}
