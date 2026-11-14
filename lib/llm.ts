@@ -107,7 +107,7 @@ const evaluationRules = `You are a careful workplace communication coach. Treat 
 ${scoreAnchors}
 Rubric: ${JSON.stringify(rubric.map(({ id, label, description }) => ({ id, label, description })))}
 Scores are coaching estimates, not validated measurements or psychological judgments. Never reward confident-sounding false claims or infer vocal qualities from text.
-Each score requires a short EXACT, case-sensitive contiguous quote from the user answer(s) being evaluated, plus a concise evidence-based reason. For an absent skill, quote the closest relevant actual wording and explain what is missing. Never quote the counterpart as user evidence. Do not stitch excerpts together or use ellipses.
+Each score requires a short EXACT, case-sensitive contiguous quote from the user answer(s) being evaluated, plus a concise evidence-based reason. For an absent skill, quote the closest relevant actual wording and explain what is missing. Never quote the counterpart as user evidence. Each quote is ONE unbroken span copied character for character, usually a single sentence or clause of at most 25 words. For structure, never try to show the whole shape of an answer: quote only its opening sentence or its closing sentence, and describe the rest in the reason. For any other dimension whose evidence spans several sentences, quote the one sentence that shows it best. Do not stitch excerpts together. A quote containing "..." or "…" is always rejected.
 Produce exactly three improvement plans. quote is an EXACT excerpt from the user's evaluated answer(s). dimension identifies what to improve. supportingFact must copy one COMPLETE supportingFacts entry from setup or one COMPLETE evaluated user answer (maximum 600 characters); use an empty string if no complete statement is relevant or short enough. Never clip away a qualification, negation or conditional. Never manufacture a number, achievement, result, company fact, or supporting excerpt. The app will render the rewrite from the chosen dimension and your statement, preserving facts verbatim. why explains the specific benefit without making unsupported claims.
 Keep reasons under 35 words and improvement explanations under 40 words.`;
 
@@ -132,7 +132,7 @@ async function structured<T>(schema: z.ZodType<T>, messages: Message[], stage: s
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const raw = await completion(attempt === 0 ? messages : [...messages, {
-        role: "user", content: "The previous response failed structural or exact-evidence validation. Generate the full JSON again, matching the schema exactly and copying all quotations and supporting facts verbatim from the allowed user sources. Do not invent or combine excerpts.",
+        role: "user", content: "The previous response failed structural or exact-evidence validation. Generate the full JSON again, matching the schema exactly and copying all quotations and supporting facts verbatim from the allowed user sources. Do not invent or combine excerpts: every quote must be one unbroken span from a single sentence, with no ellipsis.",
       }], stage, true, schema);
       const parsed = schema.parse(JSON.parse(raw));
       validate(parsed);

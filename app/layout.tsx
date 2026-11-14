@@ -8,8 +8,8 @@ const display = Bricolage_Grotesque({ subsets: ["latin"], axes: ["wdth"], variab
 const text = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "AskReady — Practice asking for a raise", template: "%s · AskReady" },
-  description: "Rehearse your raise conversation, get specific coaching, and try your hardest answer again.",
+  title: { default: "AskReady — Practice hard conversations out loud", template: "%s · AskReady" },
+  description: "One short session a day for hard conversations at work. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, and try again.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

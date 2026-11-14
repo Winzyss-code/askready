@@ -26,7 +26,7 @@ export function ComparisonBoard({ id, answers, rows, average, caption }: {
         </div>
         <div className="md:col-start-3 md:row-start-1">
           <p className="text-sm font-semibold">Attempt 2</p>
-          <p className="figure mt-2 text-2xl md:text-3xl"><span className="sr-only">Average </span><span className="mark">{average.after}</span>{scale}</p>
+          <p className="figure mt-2 text-2xl md:text-3xl"><span className="sr-only">Average </span><span className="mark-figure">{average.after}</span>{scale}</p>
         </div>
         <div className="col-span-3 mt-6 md:col-span-1 md:col-start-1 md:row-start-2">
           <p className="mb-1 text-xs font-semibold text-neutral-500 md:hidden">Attempt 1 answer</p>

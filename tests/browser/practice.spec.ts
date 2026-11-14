@@ -7,7 +7,7 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   const fits = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Practice asking for a raise before the real conversation." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Say the hard thing at work. Practice it out loud first." })).toBeVisible();
   await screenshot("landing-desktop");
   await page.setViewportSize({ width: 390, height: 844 });
   await fits();

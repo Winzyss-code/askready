@@ -22,7 +22,7 @@ export function SiteHeader({ practiceHref }: { practiceHref: string }) {
       </Link>
       <nav aria-label="Main navigation" className="flex items-center gap-2 text-sm sm:gap-4">
         <Link href="/pricing" className="flex min-h-11 items-center rounded-sm px-2 font-semibold text-neutral-600 transition-colors hover:text-ink">Pricing</Link>
-        {!focused && <ButtonLink href={practiceHref} size="sm" className="max-sm:hidden">Practice your ask</ButtonLink>}
+        {!focused && <ButtonLink href={practiceHref} size="sm" className="max-sm:hidden">Start today’s session</ButtonLink>}
       </nav>
     </header>
   );
@@ -33,7 +33,7 @@ export function SiteFooter() {
   return (
     <footer className="shell mt-24">
       <div className="flex flex-col justify-between gap-2 border-t border-neutral-200 py-8 text-sm text-neutral-500 sm:flex-row sm:items-center">
-        <p>AskReady. Practice before the conversation that matters.</p>
+        <p>AskReady. Say the hard thing at work, after you’ve practiced it.</p>
         <Link href="/pricing" className="link flex min-h-11 items-center self-start text-neutral-600">Free &amp; Pro</Link>
       </div>
     </footer>
