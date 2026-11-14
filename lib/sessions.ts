@@ -38,7 +38,7 @@ const dbErrors: Record<string, [number, string]> = {
   SESSION_CLOSED: [409, "This conversation is finished. Open its feedback to continue."],
   TURN_LIMIT: [409, "You’ve reached six answers. Get your feedback to continue."],
   RETRY_EXISTS: [409, "Your retry is already saved. Open the comparison to continue."],
-  MORE_PRACTICE_NEEDED: [400, "Answer at least two manager turns before getting feedback."],
+  MORE_PRACTICE_NEEDED: [400, "Give at least two answers before getting feedback."],
 };
 
 export async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // RLS checks session ownership; fetch only the reply needed for playback.
     const turns = await userQuery<Pick<Turn, "id" | "text">[]>(`turns?id=eq.${input.turnId}&session_id=eq.${input.sessionId}&role=eq.assistant&select=id,text`, accessToken);
     const turn = turns[0];
-    if (!turn) throw new ApiError(404, "TURN_NOT_FOUND", "That manager reply is not available.");
+    if (!turn) throw new ApiError(404, "TURN_NOT_FOUND", "That reply is not available.");
     return new Response(await synthesize(turn.text), { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "private, no-store" } });
   } catch (error) { return errorResponse(error); }
   finally { console.info(JSON.stringify({ event: "stage_timing", stage: "speak_total", durationMs: Math.round(performance.now() - started) })); }

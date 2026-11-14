@@ -24,7 +24,7 @@ export function PracticePreview({ className }: { className?: string }) {
           <div className="flex items-center gap-4">
             <ManagerDisc state="listening" size="md" />
             <div>
-              <p className="font-semibold">The budget hawk</p>
+              <p className="font-semibold">The hard-liner</p>
               <p className="text-sm text-neutral-500">Listening</p>
             </div>
           </div>

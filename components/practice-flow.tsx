@@ -95,12 +95,18 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
     if (initialSessionId && loadedId.current === initialSessionId) return;
     const controller = new AbortController();
     let active = true;
+    let leaving = false;
     async function load() {
       try {
         await ensureClientAuth();
         if (initialSessionId) {
           const saved = await api<SessionBundle>(`/api/sessions/${encodeURIComponent(initialSessionId)}`, undefined, { signal: controller.signal });
-          if (saved.session.scenario_id !== scenario.id) throw new Error("This practice belongs to another scenario. Return home to open it.");
+          if (saved.session.scenario_id !== scenario.id) {
+            // A saved session opened under the wrong scenario goes to its own page.
+            leaving = true;
+            if (active) router.replace(`/practice/${saved.session.scenario_id}?session=${saved.session.id}${retryRequested ? "&retry=1" : ""}`);
+            return;
+          }
           if (active) { loadedId.current = saved.session.id; setBundle(saved); }
         } else {
           const saved = await api<{ sessions: Session[] }>(`/api/sessions?scenarioId=${encodeURIComponent(scenario.id)}`, undefined, { signal: controller.signal });
@@ -110,12 +116,12 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
       } catch (err) {
         if (active) setBootError(errorMessage(err));
       } finally {
-        if (active) setBooting(false);
+        if (active && !leaving) setBooting(false);
       }
     }
     void load();
     return () => { active = false; controller.abort(); };
-  }, [initialSessionId, scenario.id, bootAttempt]);
+  }, [initialSessionId, scenario.id, bootAttempt, retryRequested, router]);
 
   const initialFeedback = bundle?.feedback.find((entry) => entry.attempt === 0);
   const retryFeedback = bundle?.feedback.find((entry) => entry.attempt === 1);
@@ -127,7 +133,8 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const lastManager = [...currentTurns].reverse().find((turn) => turn.role === "assistant");
   const retryObjection = isRetry && focus ? bundle?.turns.find((turn) => turn.id === focus.objectionTurnId) : undefined;
   const spokenTurn = isRetry ? retryObjection : lastManager;
-  const manager = getPersona(bundle?.session.persona_id ?? "")?.name ?? "Your manager";
+  const counterpart = scenario.counterpart.label.toLowerCase();
+  const manager = getPersona(bundle?.session.persona_id ?? "")?.name ?? `Your ${counterpart}`;
 
   useEffect(() => {
     if (!spokenTurn || lastSpoken.current === spokenTurn.id || initialFeedback && !isRetry) return;
@@ -211,7 +218,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
         <div className="lg:sticky lg:top-8">
           <h1 className="display text-2xl lg:text-3xl">{scenario.title}</h1>
           <p className="mt-4 text-lg text-neutral-600">A little context makes the practice more useful.</p>
-          <p className="mt-3 max-w-measure text-neutral-500">Five short questions, then you talk it through with an AI manager. Coaching comes after you finish, not while you speak.</p>
+          <p className="mt-3 max-w-measure text-neutral-500">Five short questions, then you talk it through with an AI {counterpart}. Coaching comes after you finish, not while you speak.</p>
           {recent.length > 0 && <Card as="section" className="mt-8 p-5" aria-label="Previous practice">
             <h2 className="font-semibold">Pick up where you left off</h2>
             <p className="mt-1 text-sm text-neutral-500">Your latest session · {new Date(recent[0].created_at).toLocaleDateString()}</p>
@@ -231,7 +238,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const recording = composerState === "recording";
   const managerState: ManagerState = busy !== null ? "thinking" : recording ? "listening" : isSpeaking ? "speaking" : "idle";
   const stateLabel = busy === "feedback" ? "Reviewing your words and preparing specific coaching…"
-    : busy === "replying" ? "Your manager is thinking…"
+    : busy === "replying" ? `${manager} is thinking…`
     : busy === "starting" ? "Preparing your conversation…"
     : recording ? "Listening"
     : isSpeaking ? "Speaking"
@@ -263,11 +270,11 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           {isRetry && <p className="mt-3 text-sm text-neutral-500">Same objection. Same rubric. A new answer in your own words.</p>}
           {error && <Notice tone="error" role="alert" className="mt-6">{error}</Notice>}
 
-          <section className="pt-8 lg:pt-10" aria-label={isRetry ? "The same objection" : "Your manager"}>
+          <section className="pt-8 lg:pt-10" aria-label={isRetry ? "The same objection" : `Your ${counterpart}`}>
             <div className="flex items-center gap-4 lg:gap-6">
               <ManagerDisc state={managerState} analyser={meter} size="md" className="lg:[--disc:7rem]" />
               <div className="min-w-0">
-                <h2 className="font-semibold">{isRetry ? `${manager} said` : manager}</h2>
+                <h2 className="font-semibold">{isRetry ? `${manager} said` : <>{manager}<span className="font-normal text-neutral-500"> · {scenario.counterpart.label}</span></>}</h2>
                 <p role="status" aria-live="polite" className="text-sm text-neutral-500">{stateLabel}</p>
               </div>
             </div>
@@ -277,7 +284,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
             {spokenTurn && <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button variant="secondary" size="sm" disabled={busy !== null || composerBusy} onClick={() => { if (isSpeaking) stop(); else void speak(spokenTurn); }}>
                 {isSpeaking ? <Square aria-hidden="true" className="size-3" fill="currentColor" /> : <Volume2 aria-hidden="true" className="size-4" />}
-                {isSpeaking ? "Stop playback" : "Hear the manager"}
+                {isSpeaking ? "Stop playback" : `Hear the ${counterpart}`}
               </Button>
               <span className="text-xs text-neutral-500">AI-generated voice</span>
             </div>}
@@ -290,7 +297,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
 
           {canAnswer ? (
             <div className="-mx-4 mt-8 border-t border-neutral-200 bg-paper px-4 pb-4 pt-4 sm:-mx-8 sm:px-8 lg:mx-0 lg:mt-10 lg:px-0 lg:pt-6 max-lg:[@media(min-height:44rem)]:sticky max-lg:[@media(min-height:44rem)]:bottom-0">
-              <VoiceComposer key={`${bundle.session.id}:${isRetry ? 1 : 0}`} onSubmit={reply} onBusyChange={setComposerBusy} onStateChange={setComposerState} onMeter={setMeter} disabled={busy !== null || isSpeaking} waitingHint={isSpeaking ? "Your manager is speaking. Answer when they finish, or stop playback." : null} sessionId={bundle.session.id} attempt={isRetry ? 1 : 0} />
+              <VoiceComposer key={`${bundle.session.id}:${isRetry ? 1 : 0}`} onSubmit={reply} onBusyChange={setComposerBusy} onStateChange={setComposerState} onMeter={setMeter} disabled={busy !== null || isSpeaking} waitingHint={isSpeaking ? `${manager} is speaking. Answer when they finish, or stop playback.` : null} sessionId={bundle.session.id} attempt={isRetry ? 1 : 0} />
             </div>
           ) : null}
 

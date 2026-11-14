@@ -134,12 +134,14 @@ test("roleplay uses fast model and actual setup without a fake fallback", async 
     assert.equal(request.model, "test-fast");
     assert.match(request.messages[1].content, /Reduced processing time by 20%/);
     assert.match(request.messages[0].content, /Never give coaching/);
+    assert.match(request.messages[0].content, /You play the user's manager/);
+    assert.doesNotMatch(request.messages[1].content, /desiredRaise/);
     return completion("What would you like to discuss?");
   };
   assert.equal(await roleplay(session, []), "What would you like to discuss?");
 });
 
-test("manager output must stay short and complete", async () => {
+test("roleplay output must stay short and complete", async () => {
   for (const text of ["One. Two. Three. Four.", Array(66).fill("word").join(" ")]) {
     globalThis.fetch = async () => completion(text);
     await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");

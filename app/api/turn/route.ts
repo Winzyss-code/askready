@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     rateLimit(`turn:${user.id}`, 20);
     const result = await withSessionLock(input.action === "start" ? user.id : input.sessionId, async () => {
       if (input.action === "start") {
-        if (!getScenario(input.scenarioId)?.live || !getPersona(input.personaId)) throw new ApiError(400, "INVALID_SCENARIO", "Choose an available scenario and manager.");
+        if (!getScenario(input.scenarioId)?.live || !getPersona(input.personaId)) throw new ApiError(400, "INVALID_SCENARIO", "Choose an available scenario and counterpart.");
         const existing = await userQuery<Session[]>(`sessions?request_id=eq.${input.requestId}&select=*`, accessToken);
         if (existing[0]) return loadSession(existing[0].id, accessToken);
         const today = new Date().toISOString().slice(0, 10);

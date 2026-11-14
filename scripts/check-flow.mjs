@@ -6,6 +6,52 @@ import { randomUUID } from "node:crypto";
 const origin = new URL(process.env.ASKREADY_TEST_URL || "http://localhost:3000").origin;
 const dimensions = ["clear_request", "evidence", "structure", "objection_handling", "next_step"];
 const cookies = new Map();
+const option = (name, fallback) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.split("=")[1] ?? fallback;
+
+// Fictional rehearsal data per live scenario: a weak first answer, a stronger second, and a retry.
+const fixtures = {
+  raise: {
+    setup: {
+      role: "Operations analyst",
+      desiredRaise: "A 10% raise",
+      achievements: ["Reduced weekly reporting time from 5 hours to 3 hours", "Trained two new colleagues"],
+      objection: "The budget is frozen until next quarter",
+    },
+    answers: [
+      "I think I deserve a 10% raise. I have been working hard and helping the team.",
+      "I understand the budget is frozen until next quarter. I reduced weekly reporting time from 5 hours to 3 hours and trained two new colleagues. Could we discuss a raise when next quarter starts?",
+    ],
+    retry: "I understand the timing and budget concern. I am asking for a 10% raise. I reduced weekly reporting time from 5 hours to 3 hours and trained two new colleagues. If an increase is not possible now, can we agree on the criteria and schedule a decision for the start of next quarter?",
+  },
+  pushback: {
+    setup: {
+      role: "Operations analyst",
+      desiredRaise: "Move the vendor audit to next sprint",
+      achievements: ["The billing migration is due this Friday", "The quarterly report is due this Friday"],
+      objection: "Everyone is stretched. I need you to make it work.",
+    },
+    answers: [
+      "I guess I can try to fit the vendor audit in, I am just pretty busy right now.",
+      "I want the audit done well too. The billing migration is due this Friday and the quarterly report is due this Friday. If I take the audit on now, one of them slips. Can we move the vendor audit to next sprint?",
+    ],
+    retry: "I understand everyone is stretched, and I want the audit done well. The billing migration is due this Friday and the quarterly report is due this Friday. If I start the audit now, one of them slips. Which one should move, or can the vendor audit start on Monday?",
+  },
+  feedback: {
+    setup: {
+      role: "Marketing manager",
+      desiredRaise: "Send your section of the client report by Thursday noon",
+      achievements: ["Last week your section arrived two days after the deadline", "I rewrote the summary overnight so the report could go out"],
+      objection: "I've been swamped, and nobody told me it was urgent.",
+    },
+    answers: [
+      "You are kind of always late with your part and it is becoming a problem.",
+      "Last week your section arrived two days after the deadline, and I rewrote the summary overnight so the report could go out. I need your section of the client report by Thursday noon.",
+    ],
+    retry: "I hear that you have been swamped. Last week your section arrived two days after the deadline, and I rewrote the summary overnight so the report could go out. I need your section of the client report by Thursday noon. Can we agree on that and check in next Friday?",
+  },
+};
+const scenarioId = option("scenario", "raise");
+const fixture = fixtures[scenarioId];
 
 async function request(path, body, expected = 200, jar = cookies) {
   const started = performance.now();
@@ -41,16 +87,12 @@ function verifyScores(scores, sources) {
 }
 
 try {
+  assert.ok(fixture, `No fixture for scenario "${scenarioId}". Use one of: ${Object.keys(fixtures).join(", ")}`);
   const auth = await request("/api/auth", {});
   const resumed = await request("/api/auth", {});
   assert.equal(auth.user.id, resumed.user.id);
-  const setup = {
-    role: "Operations analyst",
-    desiredRaise: "A 10% raise",
-    achievements: ["Reduced weekly reporting time from 5 hours to 3 hours", "Trained two new colleagues"],
-    objection: "The budget is frozen until next quarter",
-  };
-  const start = { action: "start", scenarioId: "raise", personaId: "budget", setup, requestId: randomUUID() };
+  const setup = fixture.setup;
+  const start = { action: "start", scenarioId, personaId: option("persona", "budget"), setup, requestId: randomUUID() };
   let bundle = await request("/api/turn", start);
   const id = bundle.session.id;
   assert.deepEqual(bundle.session.setup, setup);
@@ -60,7 +102,7 @@ try {
   console.log("PASS checkpoint 2: setup is validated and persisted with the selected configuration.");
 
   if (process.argv.includes("--voice")) {
-    // Generated manager audio is a speech fixture, not evidence of physical mic capture.
+    // Generated counterpart audio is a speech fixture, not evidence of physical mic capture.
     const audio = await request("/api/speak", { sessionId: id, turnId: bundle.turns[0].id });
     assert.ok(audio instanceof Blob && audio.size > 100);
     const form = new FormData();
@@ -73,10 +115,7 @@ try {
     console.log("PASS voice services: real TTS audio transcribed by Whisper; physical mic/playback still require browser QA.");
   }
 
-  for (const text of [
-    "I think I deserve a 10% raise. I have been working hard and helping the team.",
-    "I understand the budget is frozen until next quarter. I reduced weekly reporting time from 5 hours to 3 hours and trained two new colleagues. Could we discuss a raise when next quarter starts?",
-  ]) {
+  for (const text of fixture.answers) {
     const input = { action: "reply", sessionId: id, requestId: randomUUID(), attempt: 0, text, audioDurationMs: null };
     bundle = await request("/api/turn", input);
     const count = bundle.turns.length;
@@ -85,7 +124,7 @@ try {
     assert.ok(bundle.turns.some((turn) => turn.text === text));
   }
   assert.equal(bundle.turns.length, 5);
-  console.log("PASS checkpoint 3: real manager conversation, saved transcript, idempotent sends.");
+  console.log("PASS checkpoint 3: real conversation, saved transcript, idempotent sends.");
 
   bundle = await request("/api/feedback", { sessionId: id, attempt: 0 });
   const first = bundle.feedback.find((entry) => entry.attempt === 0);
@@ -97,7 +136,7 @@ try {
   assert.ok(bundle.turns.some((turn) => turn.id === first.focus.objectionTurnId && turn.text === first.focus.objection));
   console.log("PASS checkpoint 4: persisted structured feedback, three grounded improvements, exact quotes.");
 
-  const retryText = "I understand the timing and budget concern. I am asking for a 10% raise. I reduced weekly reporting time from 5 hours to 3 hours and trained two new colleagues. If an increase is not possible now, can we agree on the criteria and schedule a decision for the start of next quarter?";
+  const retryText = fixture.retry;
   await request("/api/turn", { action: "reply", sessionId: id, requestId: randomUUID(), attempt: 1, text: retryText, audioDurationMs: null });
   bundle = await request("/api/feedback", { sessionId: id, attempt: 1 });
   const retry = bundle.feedback.find((entry) => entry.attempt === 1);
@@ -121,7 +160,12 @@ try {
   await request("/api/auth", {}, 200, other);
   await request(`/api/sessions/${id}`, undefined, 404, other);
   console.log("PASS isolation: a second anonymous account cannot read this session.");
-  console.log(`PASS live flow at ${origin}; results stored at /results/${id}.`);
+  if (process.argv.includes("--print")) {
+    // Fictional fixture data only, for reading the counterpart's role and the rewrites by eye.
+    for (const turn of refreshed.turns) console.log(`[${turn.attempt}:${turn.sequence}] ${turn.role}: ${turn.text}`);
+    for (const improvement of first.improvements) console.log(`REWRITE: ${improvement.rewrite}`);
+  }
+  console.log(`PASS live flow (${scenarioId}) at ${origin}; results stored at /results/${id}.`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Live acceptance failed");
   process.exitCode = 1;

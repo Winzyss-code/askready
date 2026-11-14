@@ -98,3 +98,24 @@ test("next exercise follows the weakest dimension with stable ties", () => {
   input.evidence.score = 25;
   assert.equal(nextExercise(input).id, "evidence");
 });
+
+test("scenario config is complete: tracks, unique ids, and a three-step lesson for every live scenario", () => {
+  const { scenarios } = load("config/scenarios.ts");
+  const { tracks } = load("config/tracks.ts");
+  const { personas } = load("config/personas.ts");
+  const dimensions = rubric.map(({ id }) => id);
+  assert.equal(new Set(scenarios.map(({ id }) => id)).size, scenarios.length);
+  assert.ok(scenarios.some(({ live }) => live));
+  for (const scenario of scenarios) {
+    assert.ok(tracks.some(({ id }) => id === scenario.trackId), `${scenario.id} has an unknown track`);
+    for (const text of [scenario.userRole, scenario.counterpart.role, scenario.counterpart.label, scenario.opening, scenario.systemPrompt, scenario.fields.request.label, scenario.fields.facts.legend, scenario.fields.objection.label]) assert.ok(text.trim(), `${scenario.id} has empty config`);
+    assert.equal(scenario.fields.facts.labels.length, 2);
+    if (!scenario.live) continue;
+    assert.ok(scenario.lesson, `${scenario.id} is live without a lesson`);
+    assert.equal(scenario.lesson.steps.length, 3);
+    for (const step of scenario.lesson.steps) assert.ok(dimensions.includes(step.dimension), `${scenario.id} lesson uses an unknown dimension`);
+    assert.ok(scenario.lesson.weak.trim() && scenario.lesson.strong.trim());
+  }
+  // The counterpart's role comes from the scenario, so temperaments must not name one.
+  for (const persona of personas) assert.doesNotMatch(persona.systemPrompt, /manager|employee/i);
+});

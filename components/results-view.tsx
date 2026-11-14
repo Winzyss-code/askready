@@ -122,6 +122,7 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
   const focus = first?.focus;
   const latestScores = retry?.scores ?? first?.scores;
   const weakest = latestScores ? [...rubric].sort((a, b) => latestScores[a.id].score - latestScores[b.id].score)[0] : null;
+  const scenario = bundle ? getScenario(bundle.session.scenario_id) : undefined;
   const page = "shell pb-8 pt-6 lg:pt-12";
 
   if (loading || error || !bundle) return (
@@ -159,7 +160,7 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
     <main id="main" className={`${page} space-y-16`}>
       <header>
         <h1 className="display text-2xl lg:text-3xl">{retry ? "See what changed." : "Make your next answer stronger."}</h1>
-        <p className="mt-4 text-lg text-neutral-600">{getScenario(bundle.session.scenario_id)?.title ?? "Your rehearsal"} · {new Date(bundle.session.created_at).toLocaleDateString()}</p>
+        <p className="mt-4 text-lg text-neutral-600">{scenario?.title ?? "Your rehearsal"} · {new Date(bundle.session.created_at).toLocaleDateString()}</p>
         <p className="mt-2 max-w-measure text-sm text-neutral-500">Coaching estimate, not an objective measure or a prediction of your real conversation. Every score reflects the words used in this practice.</p>
       </header>
 
@@ -230,7 +231,7 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
 
       <details className="group border-t border-neutral-200 pt-4">
         <summary className="inline-flex min-h-11 items-center gap-2 rounded-sm font-semibold">Read the full transcript{chevron}</summary>
-        <ol className="mt-4 max-w-measure space-y-5">{bundle.turns.map((turn) => <li key={turn.id}><p className="text-sm font-semibold">{turn.role === "user" ? "You" : "Manager"}{turn.attempt === 1 ? " · Retry" : ""}</p><p className="mt-1 whitespace-pre-wrap break-words text-neutral-600">{turn.text}</p></li>)}</ol>
+        <ol className="mt-4 max-w-measure space-y-5">{bundle.turns.map((turn) => <li key={turn.id}><p className="text-sm font-semibold">{turn.role === "user" ? "You" : scenario?.counterpart.label ?? "Counterpart"}{turn.attempt === 1 ? " · Retry" : ""}</p><p className="mt-1 whitespace-pre-wrap break-words text-neutral-600">{turn.text}</p></li>)}</ol>
       </details>
     </main>
   );

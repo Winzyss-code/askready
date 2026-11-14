@@ -102,7 +102,7 @@ export function answeredObjections(turns: Turn[]) {
   const original = turns.filter((turn) => turn.attempt === 0).sort((a, b) => a.sequence - b.sequence);
   return original.flatMap((turn, index) => {
     const answer = original[index + 1];
-    // The initial manager opener has no employee case to challenge yet.
+    // The counterpart's opener has no user case to challenge yet.
     if (index === 0 || turn.role !== "assistant" || answer?.role !== "user") return [];
     return [{ objection: turn, answer }];
   });

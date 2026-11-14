@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, ChartNoAxesColumn, Check, Handshake, PiggyBank, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, Handshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { personas } from "@/config/personas";
 import type { Scenario } from "@/config/scenarios";
 import { cx } from "@/lib/cx";
@@ -16,12 +16,12 @@ const paths: Record<string, string> = { role: "role", desiredRaise: "desiredRais
 const questions = Object.values(paths);
 const nudges: Record<string, string> = {
   role: "Add your role. Two characters is enough.",
-  desiredRaise: "Say what you’re asking for, like a percentage or a new salary.",
-  "achievements.0": "Add a little more detail so your manager has something to respond to.",
-  "achievements.1": "Add a little more detail so your manager has something to respond to.",
+  desiredRaise: "Say what you’re asking for in a few words.",
+  "achievements.0": "Add a little more detail so there’s something real to respond to.",
+  "achievements.1": "Add a little more detail so there’s something real to respond to.",
   objection: "Add the pushback you expect, even a short one.",
 };
-const personaIcons: Record<string, LucideIcon> = { budget: PiggyBank, friendly: Handshake, analyst: ChartNoAxesColumn };
+const personaIcons: Record<string, LucideIcon> = { budget: Shield, friendly: Handshake, analyst: SearchCheck };
 
 function read(form: HTMLFormElement) {
   const data = new FormData(form);
@@ -83,6 +83,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
   const field = (path: string) => ({ error: errors[path], errorId: `${path}-error`, valid: answered.includes(path) });
   const legend = "display flex items-baseline gap-3 text-xl";
   const numeral = "figure text-neutral-400";
+  const { request, facts, objection } = scenario.fields;
 
   return (
     <form onSubmit={submit} onChange={track} onBlur={review} className="space-y-10">
@@ -99,19 +100,19 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
           <Field label="Your job role" htmlFor="role" {...field("role")}>
             <Input id="role" name="role" required minLength={2} maxLength={120} placeholder="Product designer" autoComplete="organization-title" {...wiring("role")} />
           </Field>
-          <Field label={scenario.requestLabel} htmlFor="desiredRaise" {...field("desiredRaise")}>
-            <Input id="desiredRaise" name="desiredRaise" required minLength={2} maxLength={200} placeholder={scenario.requestPlaceholder} {...wiring("desiredRaise")} />
+          <Field label={request.label} htmlFor="desiredRaise" {...field("desiredRaise")}>
+            <Input id="desiredRaise" name="desiredRaise" required minLength={2} maxLength={200} placeholder={request.placeholder} {...wiring("desiredRaise")} />
           </Field>
         </div>
       </fieldset>
 
       <fieldset disabled={disabled} className="min-w-0 border-t border-neutral-200 pt-8 disabled:opacity-60">
-        <legend className={cx(legend, "float-left w-full")}><span aria-hidden="true" className={numeral}>2</span>What have you done to earn it?</legend>
-        <p className="clear-both max-w-measure pt-3 text-sm text-neutral-500">Give your manager something real to respond to. Use only facts you can support, and leave out confidential company or client details.</p>
+        <legend className={cx(legend, "float-left w-full")}><span aria-hidden="true" className={numeral}>2</span>{facts.legend}</legend>
+        <p className="clear-both max-w-measure pt-3 text-sm text-neutral-500">{facts.hint} Use only facts you can support, and leave out confidential company or client details.</p>
         <div className="mt-6 space-y-6">
           {[0, 1].map((index) => (
-            <Field key={index} label={`Achievement ${index + 1}`} htmlFor={`achievement${index}`} {...field(`achievements.${index}`)}>
-              <Textarea className="min-h-24" id={`achievement${index}`} name={`achievement${index}`} required minLength={5} maxLength={600} rows={3} placeholder={index === 0 ? "What improved because of your work? Include a number if you have one." : "Another contribution, result, or responsibility you’ve taken on."} {...wiring(`achievements.${index}`)} />
+            <Field key={index} label={facts.labels[index]} htmlFor={`achievement${index}`} {...field(`achievements.${index}`)}>
+              <Textarea className="min-h-24" id={`achievement${index}`} name={`achievement${index}`} required minLength={5} maxLength={600} rows={3} placeholder={facts.placeholders[index]} {...wiring(`achievements.${index}`)} />
             </Field>
           ))}
         </div>
@@ -120,13 +121,13 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
       <div className="space-y-8 border-t border-neutral-200 pt-8">
         <fieldset disabled={disabled} className="min-w-0 disabled:opacity-60">
           <legend className={legend}><span aria-hidden="true" className={numeral}>3</span>Who’s across the table?</legend>
-          <Field className="mt-6" label="What might your manager say?" htmlFor="objection" hint="The objection you’re most worried about. Your manager will raise it." {...field("objection")}>
-            <Textarea className="min-h-20" id="objection" name="objection" required minLength={3} maxLength={400} rows={2} placeholder="We don’t have the budget right now." {...wiring("objection")} />
+          <Field className="mt-6" label={objection.label} htmlFor="objection" hint={objection.hint} {...field("objection")}>
+            <Textarea className="min-h-20" id="objection" name="objection" required minLength={3} maxLength={400} rows={2} placeholder={objection.placeholder} {...wiring("objection")} />
           </Field>
         </fieldset>
 
         <fieldset disabled={disabled} className="min-w-0 disabled:opacity-60">
-          <legend className="text-sm font-semibold">Choose your manager</legend>
+          <legend className="text-sm font-semibold">Choose who you’re up against</legend>
           <div className="mt-3 grid gap-3">
             {personas.map((persona) => {
               const Icon = personaIcons[persona.id] ?? UserRound;
@@ -156,7 +157,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
           <Button type="submit" disabled={disabled}>{disabled ? "Preparing your conversation…" : <>Start my rehearsal<ArrowRight aria-hidden="true" className="size-4" /></>}</Button>
           <p className="text-sm text-neutral-600">About 2–3 minutes. Voice or text. One free session per day.</p>
         </div>
-        <p className="mt-6 max-w-measure text-sm text-neutral-500">Your setup and conversation are processed by AI to generate the roleplay and coaching. This is practice, not a prediction of your manager’s response.</p>
+        <p className="mt-6 max-w-measure text-sm text-neutral-500">Your setup and conversation are processed by AI to generate the roleplay and coaching. This is practice, not a prediction of how the real conversation will go.</p>
       </div>
     </form>
   );
