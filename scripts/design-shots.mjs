@@ -69,6 +69,7 @@ const progressStates = {
   returning: { completed: 4, today: { used: false, sessionId: null, scenarioId: null, status: null }, streak: { current: 3, week: week([false, true, false, true, true, true, false]) }, skills: [skill("clear_request", "Clear request", 72), skill("evidence", "Evidence", 63), skill("structure", "Structure", 58), skill("objection_handling", "Objection handling", 45), skill("next_step", "Next step", 37)], scenarios: [{ id: "raise", completed: 2, lastAt: "2026-11-14T09:30:00.000Z" }, { id: "pushback", completed: 2, lastAt: "2026-11-13T09:30:00.000Z" }, { id: "feedback", completed: 0, lastAt: null }], next: { scenarioId: "feedback", focus: "next_step" } },
 };
 progressStates.done = { ...progressStates.returning, completed: 5, today: { used: true, sessionId: SESSION, scenarioId: "raise", status: "complete" }, streak: { current: 4, week: week([false, true, false, true, true, true, true]) } };
+progressStates.open = { ...progressStates.returning, today: { used: true, sessionId: SESSION, scenarioId: "raise", status: "practice" } };
 
 function wav(seconds) {
   const rate = 8000, samples = Math.floor(rate * seconds), buffer = Buffer.alloc(44 + samples * 2);
@@ -109,6 +110,8 @@ const shots = [
   { name: "setup-pushback", url: "/practice/pushback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
   { name: "setup-feedback", url: "/practice/feedback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
   { name: "setup-recent-errors", url: "/practice/raise", fullPage: true, mock: { recent: [session("feedback")] }, run: async (page) => { await page.getByLabel("Your job role").fill("O"); await page.getByLabel("Achievement 1").fill("abc"); await page.getByLabel("Achievement 2").focus(); await page.getByLabel("What might your manager say?").fill("The budget is frozen until next quarter"); await page.getByLabel("Your job role").focus(); } },
+  { name: "setup-limit", url: "/practice/pushback", fullPage: true, mock: { progress: "done" }, run: async (page) => { await page.getByRole("heading", { name: "That’s today’s session." }).waitFor(); } },
+  { name: "setup-limit-same", url: "/practice/raise", fullPage: true, mock: { progress: "open", recent: [session("practice")] }, run: async (page) => { await page.getByRole("heading", { name: "That’s today’s session." }).waitFor(); } },
   { name: "setup-loading", url: "/practice/raise", mock: { sessionsDelay: 4000 }, run: async () => { await wait(900); } },
   { name: "practice-error", url: practiceUrl, mock: { fail: true }, run: async (page) => { await page.getByRole("button", { name: "Try connecting again" }).waitFor(); } },
   { name: "practice-idle", url: practiceUrl, run: idle },

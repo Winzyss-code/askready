@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { freeAllowance } from "@/config/plans";
 import { rubric } from "@/config/rubric";
-import { getScenario, liveScenarios } from "@/config/scenarios";
+import { getScenario, liveScenarios, type Scenario } from "@/config/scenarios";
 import { api, ensureClientAuth, errorMessage } from "@/lib/client";
 import { cx } from "@/lib/cx";
 import type { Progress } from "@/lib/progress";
@@ -18,10 +19,11 @@ const inARow = (days: number) => `${count(days, "day")} in a row`;
 const shortDate = (value: string) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 /** The signed-in browser's progress, worked out by the server from saved sessions. */
-export function useProgress() {
-  const [state, setState] = useState<{ progress: Progress | null; error: string | null; loading: boolean }>({ progress: null, error: null, loading: true });
+export function useProgress(enabled = true) {
+  const [state, setState] = useState<{ progress: Progress | null; error: string | null; loading: boolean }>({ progress: null, error: null, loading: enabled });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     (async () => {
       try {
@@ -33,7 +35,7 @@ export function useProgress() {
       }
     })();
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, enabled]);
   return { ...state, retry: () => { setState({ progress: null, error: null, loading: true }); setAttempt((value) => value + 1); } };
 }
 
@@ -100,6 +102,44 @@ function NextSession({ progress }: { progress: Progress }) {
         {today.used && !open && today.sessionId && <ButtonLink variant="secondary" href={`/results/${today.sessionId}`}>Review today’s coaching</ButtonLink>}
         {today.used && !open && next && <Link className="link flex min-h-11 items-center" href={`/practice/${next.id}`}>Read tomorrow’s technique</Link>}
       </div>
+    </Card>
+  );
+}
+
+/** Shown in place of the setup form once today's free session is used. The server still enforces the limit. */
+export function DailyLimit({ progress, scenario, className }: { progress: Progress; scenario: Scenario; className?: string }) {
+  const { today } = progress;
+  const todays = getScenario(today.scenarioId ?? "");
+  const next = getScenario(progress.next.scenarioId);
+  const open = today.status === "practice";
+  const now = new Date();
+  const unlocks = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return (
+    <Card as="section" className={cx("p-6 sm:p-8 animate-settle", className)} aria-labelledby="limit-heading">
+      <h2 id="limit-heading" className="display text-xl">That’s today’s session.</h2>
+      <p className="mt-3 max-w-measure text-neutral-600">
+        {open
+          ? <>Your rehearsal{todays && <> of “{todays.title}”</>} is still open. Finish it to get your coaching.</>
+          : <>You practiced{todays ? <> “{todays.title}”</> : ""} today. Your coaching is saved.</>}
+        {" "}The next free session opens at midnight UTC, which is <span className="tabular">{unlocks}</span> your time.
+      </p>
+      {today.sessionId && today.scenarioId && <div className="mt-6">
+        {open
+          ? <ButtonLink href={`/practice/${today.scenarioId}?session=${today.sessionId}`}>Resume rehearsal<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
+          : <ButtonLink variant="secondary" href={`/results/${today.sessionId}`}>Review today’s coaching<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>}
+      </div>}
+      <dl className="mt-8">
+        {next && <div className="border-t border-neutral-300 py-4">
+          <dt className="text-sm font-semibold text-neutral-500">Suggested for tomorrow</dt>
+          <dd className="mt-1">{next.id === scenario.id
+            ? <>This conversation. The technique above is yours to read tonight.</>
+            : <Link className="link inline-flex min-h-11 items-center gap-2" href={`/practice/${next.id}`}>{next.title}<ArrowRight aria-hidden="true" className="size-4" /></Link>}</dd>
+        </div>}
+        <div className="border-t border-neutral-300 pt-4">
+          <dt className="text-sm font-semibold text-neutral-500">Need more than {freeAllowance}?</dt>
+          <dd className="mt-1">Pro will remove the daily limit. It isn’t for sale yet. <Link className="link" href="/pricing">See what’s planned</Link></dd>
+        </div>
+      </dl>
     </Card>
   );
 }

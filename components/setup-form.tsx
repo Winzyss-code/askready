@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, Check, Handshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
 import { personas } from "@/config/personas";
+import { FreeAllowance } from "@/config/plans";
 import type { Scenario } from "@/config/scenarios";
 import { cx } from "@/lib/cx";
 import { setupSchema } from "@/lib/validation";
@@ -155,7 +156,7 @@ export function SetupForm({ scenario, disabled = false, onStart }: {
       <div className="border-t border-neutral-200 pt-8">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <Button type="submit" disabled={disabled}>{disabled ? "Preparing your conversation…" : <>Start my rehearsal<ArrowRight aria-hidden="true" className="size-4" /></>}</Button>
-          <p className="text-sm text-neutral-600">About 2–3 minutes. Voice or text. One free session per day.</p>
+          <p className="text-sm text-neutral-600">About 2–3 minutes. Voice or text. {FreeAllowance} on Free.</p>
         </div>
         <p className="mt-6 max-w-measure text-sm text-neutral-500">Your setup and conversation are processed by AI to generate the roleplay and coaching. This is practice, not a prediction of how the real conversation will go.</p>
       </div>

@@ -6,6 +6,7 @@ import { ProgressStrip } from "@/components/progress-panel";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FreeAllowance, PRO_PLANNED_PRICE } from "@/config/plans";
 import { rubric } from "@/config/rubric";
 import { liveScenarios, scenarios } from "@/config/scenarios";
 import { tracks } from "@/config/tracks";
@@ -45,7 +46,7 @@ export default function HomePage() {
           <p className="mt-6 max-w-measure text-lg text-neutral-600">One short session a day for the conversations you avoid: asking for more, saying no, giving honest feedback. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, then try again.</p>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
             <ButtonLink href={practiceHref}>Start today’s session<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
-            <span className="text-sm text-neutral-600">One free session a day. No signup form.</span>
+            <span className="text-sm text-neutral-600">{FreeAllowance}, free. No signup form.</span>
           </div>
           <ProgressStrip className="mt-8 max-w-measure" />
         </div>
@@ -123,8 +124,8 @@ export default function HomePage() {
             <ButtonLink variant="accent" className="mt-8" href="/pricing">Compare Free and Pro</ButtonLink>
           </div>
           <dl className="grid content-start gap-6 sm:grid-cols-2">
-            <div className="border-t border-neutral-500 pt-4"><dt className="font-semibold">Free</dt><dd className="mt-2"><span className="figure text-2xl">$0</span><span className="mt-2 block text-sm text-neutral-300">One session a day, in any available conversation.</span></dd></div>
-            <div className="border-t border-neutral-500 pt-4"><dt className="font-semibold">Pro <span className="ml-1 text-sm font-normal text-neutral-300">waitlist only</span></dt><dd className="mt-2"><span className="figure text-2xl">$12.99</span><span className="mt-2 block text-sm text-neutral-300">Planned monthly price. No payment is taken today.</span></dd></div>
+            <div className="border-t border-neutral-500 pt-4"><dt className="font-semibold">Free</dt><dd className="mt-2"><span className="figure text-2xl">$0</span><span className="mt-2 block text-sm text-neutral-300">{FreeAllowance}, in any available conversation.</span></dd></div>
+            <div className="border-t border-neutral-500 pt-4"><dt className="font-semibold">Pro <span className="ml-1 text-sm font-normal text-neutral-300">waitlist only</span></dt><dd className="mt-2"><span className="figure text-2xl">{PRO_PLANNED_PRICE}</span><span className="mt-2 block text-sm text-neutral-300">Planned monthly price. No payment is taken today.</span></dd></div>
           </dl>
         </div>
       </section>

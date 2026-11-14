@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getScenario } from "@/config/scenarios";
 import { getPersona } from "@/config/personas";
+import { FREE_SESSIONS_PER_DAY } from "@/config/plans";
 import { ApiError, errorResponse, readJson, requireSameOrigin } from "@/lib/api";
 import { assertLlmConfigured, roleplay } from "@/lib/llm";
 import { rateLimit } from "@/lib/rate-limit";
@@ -23,8 +24,8 @@ export async function POST(request: Request) {
         const existing = await userQuery<Session[]>(`sessions?request_id=eq.${input.requestId}&select=*`, accessToken);
         if (existing[0]) return loadSession(existing[0].id, accessToken);
         const today = new Date().toISOString().slice(0, 10);
-        const used = await userQuery<Session[]>(`sessions?created_at=gte.${today}T00:00:00Z&limit=1&select=id`, accessToken);
-        if (used.length) throw new ApiError(429, "DAILY_LIMIT", "You’ve used today’s free session. Resume your saved practice or come back tomorrow (UTC).");
+        const used = await userQuery<Session[]>(`sessions?created_at=gte.${today}T00:00:00Z&limit=${FREE_SESSIONS_PER_DAY}&select=id`, accessToken);
+        if (used.length >= FREE_SESSIONS_PER_DAY) throw new ApiError(429, "DAILY_LIMIT", "You’ve used today’s free session. Resume your saved practice or come back tomorrow (UTC).");
         assertLlmConfigured();
         if (!process.env.SUPABASE_SERVICE_ROLE_KEY) throw new ApiError(503, "STORAGE_NOT_CONFIGURED", "The app owner needs to configure server storage before practice can begin.");
         const opening = await roleplay({ setup: input.setup, scenario_id: input.scenarioId, persona_id: input.personaId }, []);

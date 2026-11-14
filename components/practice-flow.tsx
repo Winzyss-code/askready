@@ -6,11 +6,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, CircleAlert, Square, Timer, Volume2 } from "lucide-react";
 import { getPersona } from "@/config/personas";
 import type { Scenario } from "@/config/scenarios";
-import { api, ensureClientAuth, errorMessage } from "@/lib/client";
+import { api, ClientError, ensureClientAuth, errorMessage } from "@/lib/client";
 import { cx } from "@/lib/cx";
 import type { Session, SessionBundle, Setup, Turn } from "@/types/domain";
 import { LessonCard } from "@/components/lesson-card";
 import { ManagerDisc, type ManagerState } from "@/components/manager-disc";
+import { DailyLimit, useProgress } from "@/components/progress-panel";
 import { SetupForm } from "@/components/setup-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -91,6 +92,8 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
   const operation = useRef<{ payload: string; id: string } | null>(null);
   const lastSpoken = useRef<string | null>(null);
   const { speak, stop, isSpeaking, notice } = useSpeech(bundle?.session.id ?? "");
+  // Only the setup stage needs to know whether today's free session is used.
+  const { progress, loading: progressLoading, retry: reloadProgress } = useProgress(!initialSessionId);
 
   useEffect(() => {
     if (initialSessionId && loadedId.current === initialSessionId) return;
@@ -159,7 +162,11 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
       setBundle(saved);
       operation.current = null;
       router.replace(`/practice/${scenario.id}?session=${saved.session.id}`, { scroll: false });
-    } catch (err) { setError(errorMessage(err)); }
+    } catch (err) {
+      setError(errorMessage(err));
+      // The server is the source of truth. If it says the day is used, reload so the limit card replaces the form.
+      if (err instanceof ClientError && err.code === "DAILY_LIMIT") reloadProgress();
+    }
     finally { setBusy(null); }
   }
 
@@ -213,6 +220,9 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
     </main>
   );
 
+  // A hint only: if progress can't load, the form shows and the server still enforces the limit.
+  const limited = Boolean(progress?.today.used);
+
   if (!bundle) return (
     <main id="main" className="shell pb-16 pt-6 lg:pt-12">
       <div className="grid items-start gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -220,7 +230,7 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           <h1 className="display text-2xl lg:text-3xl">{scenario.title}</h1>
           <p className="mt-4 text-lg text-neutral-600">{scenario.description}</p>
           <p className="mt-3 max-w-measure text-neutral-500">Read the technique, answer five short questions, then talk it through with an AI {counterpart}. Coaching comes after you finish, not while you speak.</p>
-          {recent.length > 0 && <Card as="section" className="mt-8 p-5" aria-label="Previous practice">
+          {recent.length > 0 && !(limited && recent[0].id === progress?.today.sessionId) && <Card as="section" className="mt-8 p-5" aria-label="Previous practice">
             <h2 className="font-semibold">Pick up where you left off</h2>
             <p className="mt-1 text-sm text-neutral-500">Your latest session · {new Date(recent[0].created_at).toLocaleDateString()}</p>
             <ButtonLink variant="secondary" size="sm" className="mt-4" href={recent[0].status === "practice" ? `/practice/${scenario.id}?session=${recent[0].id}` : `/results/${recent[0].id}`}>{recent[0].status === "practice" ? "Resume rehearsal" : "View saved coaching"}<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
@@ -228,9 +238,14 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
         </div>
         <div className="min-w-0">
           {scenario.lesson && <LessonCard lesson={scenario.lesson} className="mb-12" />}
-          <h2 className="display mb-8 border-t border-ink pt-8 text-xl">Set up your rehearsal</h2>
-          {error && <Notice tone="error" role="alert" className="mb-8">{error}</Notice>}
-          <SetupForm scenario={scenario} disabled={busy !== null} onStart={start} />
+          {progressLoading ? <div className="border-t border-ink pt-8" aria-busy="true">
+            <p role="status" className="text-sm text-neutral-500">Checking today’s session…</p>
+            <Skeleton className="mt-6 h-12" /><Skeleton className="mt-4 h-12" />
+          </div> : limited && progress ? <DailyLimit progress={progress} scenario={scenario} /> : <>
+            <h2 className="display mb-8 border-t border-ink pt-8 text-xl">Set up your rehearsal</h2>
+            {error && <Notice tone="error" role="alert" className="mb-8">{error}</Notice>}
+            <SetupForm scenario={scenario} disabled={busy !== null} onStart={start} />
+          </>}
         </div>
       </div>
     </main>
