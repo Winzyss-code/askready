@@ -9,6 +9,7 @@ import type { Scenario } from "@/config/scenarios";
 import { api, ensureClientAuth, errorMessage } from "@/lib/client";
 import { cx } from "@/lib/cx";
 import type { Session, SessionBundle, Setup, Turn } from "@/types/domain";
+import { LessonCard } from "@/components/lesson-card";
 import { ManagerDisc, type ManagerState } from "@/components/manager-disc";
 import { SetupForm } from "@/components/setup-form";
 import { Badge } from "@/components/ui/badge";
@@ -217,8 +218,8 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
       <div className="grid items-start gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="lg:sticky lg:top-8">
           <h1 className="display text-2xl lg:text-3xl">{scenario.title}</h1>
-          <p className="mt-4 text-lg text-neutral-600">A little context makes the practice more useful.</p>
-          <p className="mt-3 max-w-measure text-neutral-500">Five short questions, then you talk it through with an AI {counterpart}. Coaching comes after you finish, not while you speak.</p>
+          <p className="mt-4 text-lg text-neutral-600">{scenario.description}</p>
+          <p className="mt-3 max-w-measure text-neutral-500">Read the technique, answer five short questions, then talk it through with an AI {counterpart}. Coaching comes after you finish, not while you speak.</p>
           {recent.length > 0 && <Card as="section" className="mt-8 p-5" aria-label="Previous practice">
             <h2 className="font-semibold">Pick up where you left off</h2>
             <p className="mt-1 text-sm text-neutral-500">Your latest session · {new Date(recent[0].created_at).toLocaleDateString()}</p>
@@ -226,6 +227,8 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           </Card>}
         </div>
         <div className="min-w-0">
+          {scenario.lesson && <LessonCard lesson={scenario.lesson} className="mb-12" />}
+          <h2 className="display mb-8 border-t border-ink pt-8 text-xl">Set up your rehearsal</h2>
           {error && <Notice tone="error" role="alert" className="mb-8">{error}</Notice>}
           <SetupForm scenario={scenario} disabled={busy !== null} onStart={start} />
         </div>
@@ -317,7 +320,11 @@ export function PracticeFlow({ scenario, initialSessionId, retryRequested }: { s
           <Card className="p-5">
             <h2 className="text-sm font-semibold text-neutral-500">Your intention</h2>
             <p className="mt-2 break-words text-lg font-medium"><span className="mark">{bundle.session.setup.desiredRaise}</span></p>
-            <p className="mt-4 text-sm text-neutral-500">Speak as you would in the meeting. You can use voice or type. Nothing is scored while you talk.</p>
+            {scenario.lesson && <div className="mt-4 border-t border-neutral-200 pt-4">
+              <h3 className="text-sm font-semibold text-neutral-500">{scenario.lesson.technique}</h3>
+              <ol className="mt-2 space-y-1 text-sm">{scenario.lesson.steps.map((step, index) => <li key={step.title} className="flex items-baseline gap-3"><span aria-hidden="true" className="figure text-neutral-400">{index + 1}</span>{step.title}</li>)}</ol>
+            </div>}
+            <p className="mt-4 text-sm text-neutral-500">Speak as you would in the real conversation. You can use voice or type. Nothing is scored while you talk.</p>
           </Card>
           <Transcript turns={currentTurns} manager={manager} empty={isRetry ? "Your new answer will appear here." : "The conversation will appear here."} />
         </aside>

@@ -218,6 +218,24 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
 
       {retry && focus && <OriginalRehearsal scores={first.scores} />}
 
+      {scenario?.lesson && <section className="grid gap-x-16 gap-y-6 border-t border-neutral-200 pt-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" aria-labelledby="technique-heading">
+        <div>
+          <h2 id="technique-heading" className={sectionTitle}>Technique you practiced</h2>
+          <p className="mt-3 text-lg text-neutral-600">{scenario.lesson.technique}</p>
+          <p className="mt-3 max-w-measure text-sm text-neutral-500">Each step is shown with the related coaching estimate from your original rehearsal.</p>
+        </div>
+        <ol>{scenario.lesson.steps.map((step, index) => {
+          const dimension = rubric.find((item) => item.id === step.dimension);
+          return (
+            <li key={step.title} className="flex gap-4 border-t border-neutral-300 py-4 last:border-b sm:gap-6">
+              <span aria-hidden="true" className="figure w-6 shrink-0 text-lg text-neutral-400">{index + 1}</span>
+              <div className="min-w-0 flex-1"><h3 className="font-semibold">{step.title}</h3><p className="mt-1 text-sm text-neutral-600">{step.text}</p></div>
+              <p className="shrink-0 text-right"><span className="figure text-lg">{first.scores[step.dimension].score}</span><span className="sr-only"> out of 100</span><span className="mt-1 block text-xs text-neutral-500">{dimension?.label}</span></p>
+            </li>
+          );
+        })}</ol>
+      </section>}
+
       <Delivery stats={(retry ?? first).delivery_stats} isRetry={Boolean(retry)} />
 
       {weakest && <section className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6 border-t border-neutral-200 pt-10" aria-labelledby="next-heading">

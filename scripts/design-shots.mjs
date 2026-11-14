@@ -92,6 +92,8 @@ const shots = [
   { name: "pricing", url: "/pricing", fullPage: true },
   { name: "pricing-joined", url: "/pricing", fullPage: true, run: async (page) => { await page.getByLabel(/email/i).fill("dana@example.com"); await page.getByRole("button", { name: "Join Pro waitlist" }).click(); await page.getByText("You’re on the Pro waitlist.").waitFor(); } },
   { name: "setup", url: "/practice/raise", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
+  { name: "setup-pushback", url: "/practice/pushback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
+  { name: "setup-feedback", url: "/practice/feedback", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
   { name: "setup-recent-errors", url: "/practice/raise", fullPage: true, mock: { recent: [session("feedback")] }, run: async (page) => { await page.getByLabel("Your job role").fill("O"); await page.getByLabel("Achievement 1").fill("abc"); await page.getByLabel("Achievement 2").focus(); await page.getByLabel("What might your manager say?").fill("The budget is frozen until next quarter"); await page.getByLabel("Your job role").focus(); } },
   { name: "setup-loading", url: "/practice/raise", mock: { sessionsDelay: 4000 }, run: async () => { await wait(900); } },
   { name: "practice-error", url: practiceUrl, mock: { fail: true }, run: async (page) => { await page.getByRole("button", { name: "Try connecting again" }).waitFor(); } },
@@ -112,7 +114,7 @@ const shots = [
 
 const browser = await chromium.launch({ channel: "chrome", args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--autoplay-policy=no-user-gesture-required"] });
 const failures = [];
-for (const viewport of [{ label: "mobile", width: 390, height: 844, deviceScaleFactor: 2 }, { label: "desktop", width: 1280, height: 800, deviceScaleFactor: 1 }]) {
+for (const viewport of [{ label: "mobile", width: 390, height: 844, deviceScaleFactor: 2 }, { label: "desktop", width: 1440, height: 900, deviceScaleFactor: 1 }]) {
   for (const shot of shots) {
     if (filter && !shot.name.includes(filter)) continue;
     const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.deviceScaleFactor, reducedMotion: reduceMotion ? "reduce" : "no-preference", permissions: ["microphone"] });
