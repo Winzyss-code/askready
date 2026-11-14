@@ -91,6 +91,10 @@ try {
   const auth = await request("/api/auth", {});
   const resumed = await request("/api/auth", {});
   assert.equal(auth.user.id, resumed.user.id);
+  const before = (await request("/api/progress")).progress;
+  assert.equal(before.completed, 0);
+  assert.equal(before.today.used, false);
+  assert.ok(before.skills.every((skill) => skill.score === null));
   const setup = fixture.setup;
   const start = { action: "start", scenarioId, personaId: option("persona", "budget"), setup, requestId: randomUUID() };
   let bundle = await request("/api/turn", start);
@@ -147,6 +151,15 @@ try {
   assert.deepEqual(refreshed.feedback, bundle.feedback);
   console.log("PASS checkpoint 5: same-objection retry, same rubric, comparison persists after reload.");
 
+  const { progress } = await request("/api/progress");
+  assert.equal(progress.completed, 1);
+  assert.deepEqual(progress.today, { used: true, sessionId: id, scenarioId, status: "complete" });
+  assert.equal(progress.streak.current, 1);
+  // With one completed session, each skill is exactly that session's first-attempt score.
+  for (const skill of progress.skills) assert.equal(skill.score, first.scores[skill.id].score);
+  assert.notEqual(progress.next.scenarioId, scenarioId);
+  console.log("PASS checkpoint 6: progress is derived from the saved session and matches its first-attempt scores.");
+
   const limited = await request("/api/turn", { ...start, requestId: randomUUID() }, 429);
   assert.equal(limited.error.code, "DAILY_LIMIT");
   assert.equal(first.delivery_stats.wordsPerMinute, null);
@@ -159,6 +172,7 @@ try {
   const other = new Map();
   await request("/api/auth", {}, 200, other);
   await request(`/api/sessions/${id}`, undefined, 404, other);
+  assert.equal((await request("/api/progress", undefined, 200, other)).progress.completed, 0);
   console.log("PASS isolation: a second anonymous account cannot read this session.");
   if (process.argv.includes("--print")) {
     // Fictional fixture data only, for reading the counterpart's role and the rewrites by eye.

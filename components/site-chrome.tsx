@@ -21,6 +21,7 @@ export function SiteHeader({ practiceHref }: { practiceHref: string }) {
         <BrandMark />AskReady
       </Link>
       <nav aria-label="Main navigation" className="flex items-center gap-2 text-sm sm:gap-4">
+        <Link href="/progress" className="flex min-h-11 items-center rounded-sm px-2 font-semibold text-neutral-600 transition-colors hover:text-ink">Progress</Link>
         <Link href="/pricing" className="flex min-h-11 items-center rounded-sm px-2 font-semibold text-neutral-600 transition-colors hover:text-ink">Pricing</Link>
         {!focused && <ButtonLink href={practiceHref} size="sm" className="max-sm:hidden">Start today’s session</ButtonLink>}
       </nav>

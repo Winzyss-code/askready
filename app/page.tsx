@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ComparisonBoard } from "@/components/comparison-board";
 import { PracticePreview } from "@/components/practice-preview";
+import { ProgressStrip } from "@/components/progress-panel";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default function HomePage() {
             <ButtonLink href={practiceHref}>Start today’s session<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
             <span className="text-sm text-neutral-600">One free session a day. No signup form.</span>
           </div>
+          <ProgressStrip className="mt-8 max-w-measure" />
         </div>
         <PracticePreview />
       </section>

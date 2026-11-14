@@ -8,6 +8,7 @@ import { getScenario } from "@/config/scenarios";
 import { api, ensureClientAuth, errorMessage } from "@/lib/client";
 import type { DeliveryStats, Scores, SessionBundle } from "@/types/domain";
 import { ComparisonBoard } from "@/components/comparison-board";
+import { ProgressNext } from "@/components/progress-panel";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/feedback";
@@ -242,9 +243,10 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
         <div className="min-w-0">
           <h2 id="next-heading" className={sectionTitle}>Tomorrow, work on {weakest.label.toLowerCase()}.</h2>
           <p className="mt-4 max-w-measure text-neutral-600">This was the lowest-rated dimension in your {retry ? "retry" : "rehearsal"}. {weakest.exercise}</p>
+          <ProgressNext className="mt-4" />
           <p className="mt-3 max-w-measure text-sm text-neutral-500">Your next free session is available after midnight UTC. Today’s rehearsal and retry stay saved here.</p>
         </div>
-        <ButtonLink variant="secondary" href={`/practice/${bundle.session.scenario_id}`}>Return to practice</ButtonLink>
+        <ButtonLink variant="secondary" href="/progress">See your progress</ButtonLink>
       </section>}
 
       <details className="group border-t border-neutral-200 pt-4">

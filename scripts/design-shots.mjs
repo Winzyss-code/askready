@@ -62,6 +62,14 @@ const bundles = {
   complete: { session: session("complete"), turns: [opening, answer1, objection, answer2, closing, retryAnswer], feedback: [fb0, fb1] },
 };
 
+const week = (done) => ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"].map((date, index) => ({ date, done: done[index] }));
+const skill = (id, label, value) => ({ id, label, score: value, level: value === null ? null : value >= 80 ? 4 : value >= 60 ? 3 : value >= 40 ? 2 : 1, samples: value === null ? 0 : 3 });
+const progressStates = {
+  new: { completed: 0, today: { used: false, sessionId: null, scenarioId: null, status: null }, streak: { current: 0, week: week([false, false, false, false, false, false, false]) }, skills: [skill("clear_request", "Clear request", null), skill("evidence", "Evidence", null), skill("structure", "Structure", null), skill("objection_handling", "Objection handling", null), skill("next_step", "Next step", null)], scenarios: [{ id: "raise", completed: 0, lastAt: null }, { id: "pushback", completed: 0, lastAt: null }, { id: "feedback", completed: 0, lastAt: null }], next: { scenarioId: "raise", focus: null } },
+  returning: { completed: 4, today: { used: false, sessionId: null, scenarioId: null, status: null }, streak: { current: 3, week: week([false, true, false, true, true, true, false]) }, skills: [skill("clear_request", "Clear request", 72), skill("evidence", "Evidence", 63), skill("structure", "Structure", 58), skill("objection_handling", "Objection handling", 45), skill("next_step", "Next step", 37)], scenarios: [{ id: "raise", completed: 2, lastAt: "2026-11-14T09:30:00.000Z" }, { id: "pushback", completed: 2, lastAt: "2026-11-13T09:30:00.000Z" }, { id: "feedback", completed: 0, lastAt: null }], next: { scenarioId: "feedback", focus: "next_step" } },
+};
+progressStates.done = { ...progressStates.returning, completed: 5, today: { used: true, sessionId: SESSION, scenarioId: "raise", status: "complete" }, streak: { current: 4, week: week([false, true, false, true, true, true, true]) } };
+
 function wav(seconds) {
   const rate = 8000, samples = Math.floor(rate * seconds), buffer = Buffer.alloc(44 + samples * 2);
   buffer.write("RIFF", 0); buffer.writeUInt32LE(36 + samples * 2, 4); buffer.write("WAVEfmt ", 8);
@@ -73,7 +81,8 @@ function wav(seconds) {
 const json = (body, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function mock(page, { bundle = "mid", speakSeconds = 0.15, turnDelay = 0, transcribeDelay = 0, sessionsDelay = 0, recent = [], fail = false } = {}) {
+async function mock(page, { bundle = "mid", speakSeconds = 0.15, turnDelay = 0, transcribeDelay = 0, sessionsDelay = 0, recent = [], fail = false, progress = "new" } = {}) {
+  await page.route("**/api/progress", (route) => route.fulfill(fail ? json({ error: { message: "Your saved practice is temporarily unavailable. Please try again." } }, 503) : json({ progress: progressStates[progress] })));
   await page.route("**/api/auth", (route) => route.fulfill(json({ ok: true })));
   await page.route("**/api/sessions?*", async (route) => { await wait(sessionsDelay); await route.fulfill(fail ? json({ error: { message: "We couldn’t reach your saved practice. Check your connection and try again." } }, 503) : json({ sessions: recent })); });
   await page.route("**/api/sessions/*", async (route) => { await wait(sessionsDelay); await route.fulfill(fail ? json({ error: { message: "We couldn’t reach your saved practice. Check your connection and try again." } }, 503) : json(bundles[bundle])); });
@@ -89,6 +98,11 @@ const idle = async (page) => { await page.getByRole("button", { name: "Record an
 
 const shots = [
   { name: "landing", url: "/", fullPage: true },
+  { name: "landing-returning", url: "/", mock: { progress: "returning" }, run: async (page) => { await page.getByRole("link", { name: "Your progress" }).waitFor(); } },
+  { name: "progress", url: "/progress", fullPage: true, mock: { progress: "returning" }, run: async (page) => { await page.getByRole("heading", { name: "Skill levels" }).waitFor(); } },
+  { name: "progress-done", url: "/progress", fullPage: true, mock: { progress: "done" }, run: async (page) => { await page.getByRole("heading", { name: "Skill levels" }).waitFor(); } },
+  { name: "progress-empty", url: "/progress", run: async (page) => { await page.getByRole("link", { name: /Start with/ }).waitFor(); } },
+  { name: "progress-error", url: "/progress", mock: { fail: true }, run: async (page) => { await page.getByRole("button", { name: "Try again" }).waitFor(); } },
   { name: "pricing", url: "/pricing", fullPage: true },
   { name: "pricing-joined", url: "/pricing", fullPage: true, run: async (page) => { await page.getByLabel(/email/i).fill("dana@example.com"); await page.getByRole("button", { name: "Join Pro waitlist" }).click(); await page.getByText("You’re on the Pro waitlist.").waitFor(); } },
   { name: "setup", url: "/practice/raise", fullPage: true, run: async (page) => { await page.getByLabel("Your job role").waitFor(); } },
@@ -105,7 +119,7 @@ const shots = [
   { name: "practice-thinking", url: practiceUrl, mock: { turnDelay: 6000 }, run: async (page) => { await idle(page); await page.getByRole("textbox", { name: "Your answer", exact: true }).fill(answer2.text); await page.getByRole("button", { name: "Send answer", exact: true }).click(); await wait(1200); } },
   { name: "practice-mic-denied", url: practiceUrl, run: async (page) => { await idle(page); await page.evaluate(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Test denial", "NotAllowedError"); }; }); await page.getByRole("button", { name: "Record an answer" }).click(); await page.getByText("Microphone access was denied.", { exact: false }).waitFor(); await wait(300); } },
   { name: "practice-late", url: practiceUrl, fullPage: true, mock: { bundle: "late" }, run: idle },
-  { name: "feedback", url: `/results/${SESSION}`, fullPage: true, mock: { bundle: "feedback" }, run: async (page) => { await page.getByRole("heading", { name: "Three changes to try" }).waitFor(); await wait(600); } },
+  { name: "feedback", url: `/results/${SESSION}`, fullPage: true, mock: { bundle: "feedback", progress: "done" }, run: async (page) => { await page.getByRole("heading", { name: "Three changes to try" }).waitFor(); await wait(600); } },
   { name: "results-loading", url: `/results/${SESSION}`, mock: { bundle: "feedback", sessionsDelay: 4000 }, run: async () => { await wait(900); } },
   { name: "retry", url: `${practiceUrl}&retry=1`, mock: { bundle: "feedback" }, run: async (page) => { await page.getByRole("heading", { name: "Try that moment again." }).waitFor(); await idle(page); } },
   { name: "comparison", url: `/results/${SESSION}`, fullPage: true, mock: { bundle: "complete" }, run: async (page) => { await page.getByRole("heading", { name: "One objection. Two answers." }).waitFor(); await wait(1600); } },
