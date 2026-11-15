@@ -1,13 +1,15 @@
 import "server-only";
 import { z } from "zod";
 import { ApiError } from "@/lib/api";
+import { recordTiming } from "@/lib/timing";
 
 const resultSchema = z.object({
   text: z.string().trim().max(3000),
   duration: z.number().positive().optional(),
 });
 
-export async function transcribe(audio: File): Promise<{ text: string; durationMs: number | null }> {
+/** `prompt` is the text just before this audio, so a piece of a longer answer is transcribed in context. */
+export async function transcribe(audio: File, prompt?: string): Promise<{ text: string; durationMs: number | null }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new ApiError(503, "VOICE_NOT_CONFIGURED", "Voice transcription is unavailable. You can type your answer instead.");
   if (!audio.size || audio.size > 3_500_000) throw new ApiError(413, "AUDIO_TOO_LARGE", "Use a recording smaller than 3.5 MB, or type your answer.");
@@ -16,6 +18,7 @@ export async function transcribe(audio: File): Promise<{ text: string; durationM
   body.set("model", "whisper-1");
   body.set("response_format", "verbose_json");
   body.set("language", "en");
+  if (prompt?.trim()) body.set("prompt", prompt.trim());
   const started = performance.now();
   try {
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -33,6 +36,6 @@ export async function transcribe(audio: File): Promise<{ text: string; durationM
     if (error instanceof ApiError) throw error;
     throw new ApiError(502, "TRANSCRIPTION_UNAVAILABLE", "Transcription took too long or could not connect. Try again or type your answer.");
   } finally {
-    console.info(JSON.stringify({ event: "stage_timing", stage: "transcribe", durationMs: Math.round(performance.now() - started) }));
+    recordTiming("transcribe", performance.now() - started);
   }
 }

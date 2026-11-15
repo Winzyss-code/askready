@@ -4,7 +4,11 @@ import { z } from "zod";
 import { ApiError } from "@/lib/api";
 import { readSupabaseConfig } from "@/lib/env";
 
-const userSchema = z.object({ id: z.uuid(), is_anonymous: z.boolean().optional() });
+const userSchema = z.object({
+  id: z.uuid(), is_anonymous: z.boolean().optional(),
+  // An anonymous account that asked to save its progress has new_email until the link is opened.
+  email: z.string().nullish(), new_email: z.string().nullish(),
+});
 const tokensSchema = z.object({
   access_token: z.string().min(1),
   refresh_token: z.string().min(1),
@@ -56,7 +60,7 @@ export async function adminRequest(path: string, init: RequestInit = {}) {
   headers.set("Content-Type", "application/json");
   try {
     return await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, "")}/rest/v1/${path}`, {
-      ...init, headers, cache: "no-store", signal: AbortSignal.timeout(12_000),
+      ...init, headers, cache: "no-store", signal: init.signal ?? AbortSignal.timeout(12_000),
     });
   } catch { throw new ApiError(503, "STORAGE_UNAVAILABLE", "We could not save your work. Please try again."); }
 }
@@ -105,14 +109,21 @@ export async function getAuthenticatedUser() {
   return { user, accessToken };
 }
 
-export async function ensureAnonymousUser() {
+/** True when anonymous sign-up needs a CAPTCHA token (Cloudflare Turnstile, also enabled in Supabase Auth). */
+export function captchaRequired() { return Boolean((Reflect.get(process.env, "NEXT_PUBLIC_TURNSTILE_SITE_KEY") as string | undefined)?.trim()); }
+const captchaFailed = () => new ApiError(401, "CAPTCHA_FAILED", "We couldn’t confirm you’re a person. Reload the page and try again.");
+
+export async function ensureAnonymousUser(captchaToken?: string) {
   const current = await getAuthenticatedUser();
   if (current) return current;
+  // Only a brand-new account needs the check, so returning visitors never see it.
+  if (captchaRequired() && !captchaToken) throw new ApiError(401, "CAPTCHA_REQUIRED", "Confirm you’re a person to start practicing.");
   const response = await supabaseRequest("/auth/v1/signup", {
-    method: "POST", body: JSON.stringify({ data: {} }),
+    method: "POST", body: JSON.stringify({ data: {}, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) }),
   });
   if (!response.ok) {
     if (response.status === 429) throw new ApiError(429, "AUTH_RATE_LIMITED", "Sign-in is temporarily rate limited. Wait a few minutes, then try again.");
+    if (captchaToken && response.status === 400) throw captchaFailed();
     throw new ApiError(503, "SIGN_IN_FAILED", "Anonymous sign-in is unavailable. The app owner should check the Supabase key and enable anonymous sign-ins.");
   }
   const accessToken = await saveTokens(await response.json());
@@ -126,4 +137,72 @@ export async function checkUserStorage(accessToken: string) {
   if (!response.ok) {
     throw new ApiError(503, "DATABASE_NOT_READY", "Your account is connected, but practice storage is unavailable. The app owner should apply the database migration.");
   }
+}
+
+// Accounts that survive: an anonymous account can add an email (same account, so nothing moves), and a saved
+// account can sign in on another browser with a link. Supabase sends both emails. The link opens /auth/callback,
+// which hands the new session to adoptSession so the tokens end up in the same HTTP-only cookies as before.
+
+export type Account = { email: string | null; pendingEmail: string | null; anonymous: boolean };
+export function accountOf(user: z.infer<typeof userSchema>): Account {
+  return { email: user.email || null, pendingEmail: user.new_email || null, anonymous: user.is_anonymous ?? !user.email };
+}
+
+async function authError(response: Response) {
+  const body = await response.json().catch(() => ({}));
+  return { status: response.status, code: String(body.error_code ?? body.code ?? ""), message: String(body.msg ?? body.message ?? body.error_description ?? "") };
+}
+const emailRateLimited = () => new ApiError(429, "EMAIL_RATE_LIMITED", "Too many emails have been sent. Wait an hour, then try again.");
+
+/** Sends a link that saves this anonymous account under an email. Opening it makes the account permanent. */
+export async function requestSaveLink(accessToken: string, email: string, redirectTo: string) {
+  const response = await supabaseRequest(`/auth/v1/user?redirect_to=${encodeURIComponent(redirectTo)}`, { method: "PUT", body: JSON.stringify({ email }) }, accessToken);
+  if (response.ok) return;
+  const failure = await authError(response);
+  if (failure.code === "email_exists" || /already (been )?registered|already exists/i.test(failure.message)) {
+    throw new ApiError(409, "EMAIL_TAKEN", "That email already has saved progress. Sign in with it instead.");
+  }
+  if (failure.status === 429 || failure.code === "over_email_send_rate_limit") throw emailRateLimited();
+  if (failure.code === "email_address_invalid" || failure.status === 422) throw new ApiError(400, "INVALID_EMAIL", "Check the email address and try again.");
+  throw new ApiError(503, "EMAIL_UNAVAILABLE", "We couldn’t send the email. The app owner should check Supabase email settings.");
+}
+
+/** Sends a sign-in link to a saved account. Says nothing about whether the account exists. */
+export async function requestSignInLink(email: string, redirectTo: string, captchaToken?: string) {
+  const response = await supabaseRequest(`/auth/v1/otp?redirect_to=${encodeURIComponent(redirectTo)}`, {
+    method: "POST", body: JSON.stringify({ email, create_user: false, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) }),
+  });
+  if (response.ok) return;
+  const failure = await authError(response);
+  if (failure.status === 429 || failure.code === "over_email_send_rate_limit") throw emailRateLimited();
+  if (/captcha/i.test(failure.code + failure.message)) throw captchaFailed();
+  // No account with that email: answer as if a link was sent, so the form can't be used to look up addresses.
+  if (failure.status === 400 || failure.status === 422 || failure.status === 404) return;
+  throw new ApiError(503, "EMAIL_UNAVAILABLE", "We couldn’t send the email. The app owner should check Supabase email settings.");
+}
+
+/** Takes over the session from a link: tokens from the link's #fragment, or a token hash to verify. */
+export async function adoptSession(input: { accessToken: string; refreshToken: string; expiresIn?: number } | { tokenHash: string; type: string }) {
+  let tokens: unknown;
+  if ("tokenHash" in input) {
+    const response = await supabaseRequest("/auth/v1/verify", { method: "POST", body: JSON.stringify({ token_hash: input.tokenHash, type: input.type }) });
+    if (!response.ok) throw new ApiError(401, "LINK_EXPIRED", "That link has expired or was already used. Ask for a new one.");
+    tokens = await response.json();
+  } else {
+    tokens = { access_token: input.accessToken, refresh_token: input.refreshToken, expires_in: input.expiresIn ?? 3600 };
+  }
+  const parsed = tokensSchema.safeParse(tokens);
+  if (!parsed.success) throw new ApiError(401, "LINK_EXPIRED", "That link has expired or was already used. Ask for a new one.");
+  const user = await verifyUser(parsed.data.access_token);
+  if (!user) throw new ApiError(401, "LINK_EXPIRED", "That link has expired or was already used. Ask for a new one.");
+  await saveTokens(parsed.data);
+  return accountOf(user);
+}
+
+/** Signs a saved account out of this browser. Its progress stays with the email; this browser starts fresh. */
+export async function signOut(accessToken: string) {
+  await supabaseRequest("/auth/v1/logout?scope=local", { method: "POST" }, accessToken).catch(() => undefined);
+  const jar = await cookies();
+  jar.delete(ACCESS_COOKIE);
+  jar.delete(REFRESH_COOKIE);
 }

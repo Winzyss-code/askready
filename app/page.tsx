@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ComparisonBoard } from "@/components/comparison-board";
-import { PracticePreview } from "@/components/practice-preview";
+import { DemoVideo } from "@/components/demo-video";
 import { ProgressStrip } from "@/components/progress-panel";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -16,7 +16,8 @@ const example = {
   objection: "I appreciate your work. But budgets are frozen.",
   before: "I understand. I just think I’ve been doing a lot this year, so maybe we could look at it again at some point?",
   after: "I hear that budgets are frozen. I’m asking for 10% because I cut weekly reporting from five hours to three and trained two new colleagues. What would you need to see to approve it, and can we set a date next quarter to decide?",
-  scores: [[25, 75], [25, 75], [50, 75], [25, 75], [0, 100]],
+  // Scored by hand against config/rubric.ts: the "after" has no dated decision, so next step is 75, not 100.
+  scores: [[25, 100], [25, 100], [25, 100], [25, 75], [25, 75]],
 };
 const steps = [
   { title: "Learn one technique", text: "Each conversation opens with three steps and a weak line beside a stronger one." },
@@ -33,6 +34,8 @@ const differences = [
 
 export default function HomePage() {
   const practiceHref = liveScenarios[0] ? `/practice/${liveScenarios[0].id}` : "/pricing";
+  // A made-up raise case, filled in and clearly labelled, so a first visit is talking within seconds.
+  const exampleHref = liveScenarios[0]?.example ? `${practiceHref}?example=1` : null;
   const rows = rubric.map((dimension, index) => ({ label: dimension.label, before: example.scores[index][0], after: example.scores[index][1] }));
   const mean = (side: 0 | 1) => Math.round(example.scores.reduce((sum, pair) => sum + pair[side], 0) / example.scores.length);
   const liveCount = ["None", "One", "Two", "Three", "Four", "Five", "Six"][liveScenarios.length] ?? liveScenarios.length;
@@ -46,11 +49,12 @@ export default function HomePage() {
           <p className="mt-6 max-w-measure text-lg text-neutral-600">One short session a day for the conversations you avoid, at work and in life: asking for more, saying no, setting boundaries, giving honest feedback. Learn one technique, rehearse it by voice with an AI who pushes back, get coached on your exact words, then try again.</p>
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
             <ButtonLink href={practiceHref}>Start today’s session<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
-            <span className="text-sm text-neutral-600">{FreeAllowance}, free. No signup form.</span>
+            {exampleHref && <Link className="link flex min-h-11 items-center" href={exampleHref}>Or try a ready-made example</Link>}
           </div>
+          <p className="mt-3 text-sm text-neutral-600">{FreeAllowance}, free. No signup form.</p>
           <ProgressStrip className="mt-8 max-w-measure" />
         </div>
-        <PracticePreview />
+        <DemoVideo />
       </section>
 
       <section className="mt-24 lg:mt-32" aria-labelledby="how-heading">
@@ -133,7 +137,7 @@ export default function HomePage() {
       <section className="mt-16 max-w-measure" aria-labelledby="privacy-heading">
         <h2 id="privacy-heading" className="font-semibold">Your practice, your words.</h2>
         <p className="mt-3 text-sm text-neutral-600">Voice and conversation content are sent to OpenAI to run the rehearsal and generate coaching. Transcripts and results are saved in Supabase under your anonymous account; recordings are not stored by AskReady. Use only details you are comfortable sharing.</p>
-        <p className="mt-2 text-sm text-neutral-600">This browser remembers your account. Clearing cookies or switching browsers means losing access to your results. Coaching is an estimate, not a prediction of how the real conversation will go.</p>
+        <p className="mt-2 text-sm text-neutral-600">This browser remembers your account with no signup. To keep your results after clearing cookies or on another device, save your progress to an email from the progress page; the email is used only for sign-in links. Coaching is an estimate, not a prediction of how the real conversation will go.</p>
       </section>
     </main>
   );

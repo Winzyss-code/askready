@@ -4,6 +4,7 @@ import { ApiError, errorResponse, requireSameOrigin } from "@/lib/api";
 import { rateLimit } from "@/lib/rate-limit";
 import { loadSession, requireUser } from "@/lib/sessions";
 import { transcribe } from "@/lib/stt";
+import { recordTiming } from "@/lib/timing";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const MAX_BODY = 3_700_000;
@@ -32,16 +33,18 @@ export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
     const { user, accessToken } = await requireUser();
-    rateLimit(`stt:${user.id}`, 15);
+    // An answer arrives as several pieces, transcribed while the user is still talking.
+    await rateLimit(`stt:${user.id}`, 40);
     const form = await boundedForm(request);
-    const input = z.object({ sessionId: z.uuid(), attempt: z.enum(["0", "1"]), audio: z.instanceof(File).refine(f => f.size > 0 && f.size <= 3_500_000 && /^(audio\/(webm|mp4|mpeg|wav|ogg)|video\/(webm|mp4))(;.*)?$/.test(f.type)) }).safeParse({ sessionId: form.get("sessionId"), attempt: form.get("attempt"), audio: form.get("audio") });
+    // `prompt` is the answer so far, so a piece carries on from the last one.
+    const input = z.object({ sessionId: z.uuid(), attempt: z.enum(["0", "1"]), prompt: z.string().max(500).optional(), audio: z.instanceof(File).refine(f => f.size > 0 && f.size <= 3_500_000 && /^(audio\/(webm|mp4|mpeg|wav|ogg)|video\/(webm|mp4))(;.*)?$/.test(f.type)) }).safeParse({ sessionId: form.get("sessionId"), attempt: form.get("attempt"), prompt: form.get("prompt") ?? undefined, audio: form.get("audio") });
     if (!input.success) throw new ApiError(400, "INVALID_AUDIO", "Use a supported recording under 3.5 MB, or type your answer.");
     const bundle = await loadSession(input.data.sessionId, accessToken);
     const expectedStatus = input.data.attempt === "0" ? "practice" : "feedback";
     if (bundle.session.status !== expectedStatus) throw new ApiError(409, "SESSION_CLOSED", "This practice step has finished. Refresh your session to continue.");
-    const result = await transcribe(input.data.audio);
+    const result = await transcribe(input.data.audio, input.data.prompt);
     if (result.durationMs && result.durationMs > 180000) throw new ApiError(400, "AUDIO_TOO_LONG", "Keep answers under three minutes.");
     return NextResponse.json({ text: result.text, audioDurationMs: result.durationMs }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return errorResponse(error); }
-  finally { console.info(JSON.stringify({ event: "stage_timing", stage: "transcribe_total", durationMs: Math.round(performance.now() - started) })); }
+  finally { recordTiming("transcribe_total", performance.now() - started); }
 }

@@ -15,6 +15,12 @@ function stream(chunks, allowed) {
   return { released, text: (released.map((step) => step.out).join("") + rest).trim(), emotion: reader.emotion };
 }
 
+test("a reply streamed as tag, then space, then words, starts at the first word", () => {
+  const { released, text } = stream(["[skeptical]", " ", " I hear", " you."]);
+  assert.equal(released.map((step) => step.out).join(""), "I hear you.");
+  assert.equal(text, "I hear you.");
+});
+
 test("a valid tag sets the emotion and is removed", () => {
   assert.deepEqual(parseEmotion("[skeptical] I hear you, but budgets are tight."), { emotion: "skeptical", text: "I hear you, but budgets are tight." });
   assert.deepEqual(parseEmotion("  [Warm]Thanks for coming in."), { emotion: "warm", text: "Thanks for coming in." });

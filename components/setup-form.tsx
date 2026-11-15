@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Handshake, HeartHandshake, SearchCheck, Shield, UserRound, type LucideIcon } from "lucide-react";
-import { personasFor } from "@/config/personas";
+import { personasFor, sampleLine } from "@/config/personas";
 import { FreeAllowance } from "@/config/plans";
 import type { Scenario } from "@/config/scenarios";
 import { cx } from "@/lib/cx";
@@ -39,8 +39,10 @@ function read(form: HTMLFormElement) {
   return { parsed, failing };
 }
 
-export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange }: {
+/** `defaults` pre-fills the form (the example case); remount it with a new key to change them. */
+export function SetupForm({ scenario, defaults, disabled = false, onStart, onPersonaChange }: {
   scenario: Scenario;
+  defaults?: Setup;
   disabled?: boolean;
   onStart: (setup: Setup, personaId: string) => Promise<void>;
   onPersonaChange?: (personaId: string) => void;
@@ -50,6 +52,11 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
   useEffect(() => { onPersonaChange?.(personaId); }, [personaId, onPersonaChange]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [answered, setAnswered] = useState<string[]>([]);
+  const form = useRef<HTMLFormElement>(null);
+  // Pre-filled answers count as answered from the start.
+  useEffect(() => {
+    if (defaults && form.current) setAnswered(questions.filter((path) => !read(form.current!).failing.has(path)));
+  }, [defaults]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,7 +97,7 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
   const { role, request, facts, objection } = scenario.fields;
 
   return (
-    <form onSubmit={submit} onChange={track} onBlur={review} className="space-y-10">
+    <form ref={form} onSubmit={submit} onChange={track} onBlur={review} className="space-y-10">
       <div className="flex items-center gap-4">
         <span aria-hidden="true" className="flex flex-1 gap-1">
           {questions.map((path, index) => <span key={path} className={cx("h-1.5 flex-1 rounded-full transition-colors", index < answered.length ? "bg-ink" : "bg-neutral-300")} />)}
@@ -102,10 +109,10 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
         <legend className={legend}><span aria-hidden="true" className={numeral}>1</span>What’s the ask?</legend>
         <div className="mt-6 grid gap-6 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <Field label={role?.label ?? "Your job role"} htmlFor="role" {...field("role")}>
-            <Input id="role" name="role" required minLength={2} maxLength={120} placeholder={role?.placeholder ?? "Product designer"} autoComplete={role ? "off" : "organization-title"} {...wiring("role")} />
+            <Input id="role" name="role" defaultValue={defaults?.role} required minLength={2} maxLength={120} placeholder={role?.placeholder ?? "Product designer"} autoComplete={role ? "off" : "organization-title"} {...wiring("role")} />
           </Field>
           <Field label={request.label} htmlFor="desiredRaise" {...field("desiredRaise")}>
-            <Input id="desiredRaise" name="desiredRaise" required minLength={2} maxLength={200} placeholder={request.placeholder} {...wiring("desiredRaise")} />
+            <Input id="desiredRaise" name="desiredRaise" defaultValue={defaults?.desiredRaise} required minLength={2} maxLength={200} placeholder={request.placeholder} {...wiring("desiredRaise")} />
           </Field>
         </div>
       </fieldset>
@@ -116,7 +123,7 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
         <div className="mt-6 space-y-6">
           {[0, 1].map((index) => (
             <Field key={index} label={facts.labels[index]} htmlFor={`achievement${index}`} {...field(`achievements.${index}`)}>
-              <Textarea className="min-h-24" id={`achievement${index}`} name={`achievement${index}`} required minLength={5} maxLength={600} rows={3} placeholder={facts.placeholders[index]} {...wiring(`achievements.${index}`)} />
+              <Textarea className="min-h-24" id={`achievement${index}`} name={`achievement${index}`} defaultValue={defaults?.achievements[index]} required minLength={5} maxLength={600} rows={3} placeholder={facts.placeholders[index]} {...wiring(`achievements.${index}`)} />
             </Field>
           ))}
         </div>
@@ -126,7 +133,7 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
         <fieldset disabled={disabled} className="min-w-0 disabled:opacity-60">
           <legend className={legend}><span aria-hidden="true" className={numeral}>3</span>Who’s across the table?</legend>
           <Field className="mt-6" label={objection.label} htmlFor="objection" hint={objection.hint} {...field("objection")}>
-            <Textarea className="min-h-20" id="objection" name="objection" required minLength={3} maxLength={400} rows={2} placeholder={objection.placeholder} {...wiring("objection")} />
+            <Textarea className="min-h-20" id="objection" name="objection" defaultValue={defaults?.objection} required minLength={3} maxLength={400} rows={2} placeholder={objection.placeholder} {...wiring("objection")} />
           </Field>
         </fieldset>
 
@@ -147,6 +154,7 @@ export function SetupForm({ scenario, disabled = false, onStart, onPersonaChange
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1"><span className="font-semibold">{persona.name}</span><Badge tone={chosen ? "ink" : "neutral"}>{persona.title}</Badge></span>
                     <span className="mt-1 block text-sm text-neutral-600">{persona.description}</span>
+                    <span className="mt-2 block text-sm font-medium">“{sampleLine(persona, scenario.id)}”</span>
                   </span>
                   <span aria-hidden="true" className={cx("mt-1 flex size-6 shrink-0 items-center justify-center rounded-full transition-colors", chosen ? "bg-marker text-ink" : "border border-neutral-300 text-transparent")}><Check className="size-4" strokeWidth={3} /></span>
                 </label>

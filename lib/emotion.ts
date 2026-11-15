@@ -20,11 +20,14 @@ const anyTag = new RegExp(`\\s*\\[(?:${emotions.join("|")})\\]\\s*`, "gi");
 export function createEmotionReader(allowed: readonly Emotion[] = emotions) {
   let pending = "";
   let settled = false;
+  // Until the first word is out, whitespace is dropped, even when the tag and the space after it arrive separately.
+  let started = false;
   let emotion: Emotion = "neutral";
-  const release = (rest: string) => { settled = true; pending = ""; return rest.trimStart(); };
+  const release = (rest: string) => { settled = true; pending = ""; const text = rest.trimStart(); if (text) started = true; return text; };
   return {
     push(chunk: string): string {
-      if (settled) return chunk;
+      if (settled && started) return chunk;
+      if (settled) { const text = chunk.trimStart(); if (text) started = true; return text; }
       pending += chunk;
       const start = pending.trimStart();
       if (!start) return "";
@@ -47,9 +50,12 @@ export function createEmotionReader(allowed: readonly Emotion[] = emotions) {
   };
 }
 
+/** Removes any mood tag that turns up later in a reply. */
+export function stripTags(text: string) { return text.replace(anyTag, " ").replace(/\s{2,}/g, " ").trim(); }
+
 /** A whole reply: its emotion, and its text with the tag (and any stray mood tag later on) removed. */
 export function parseEmotion(reply: string, allowed: readonly Emotion[] = emotions) {
   const reader = createEmotionReader(allowed);
-  const text = (reader.push(reply) + reader.end()).replace(anyTag, " ").replace(/\s{2,}/g, " ").trim();
+  const text = stripTags(reader.push(reply) + reader.end());
   return { emotion: reader.emotion, text };
 }

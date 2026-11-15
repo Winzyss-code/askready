@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 
 export default async function PracticePage({ params, searchParams }: {
   params: Promise<{ scenarioId: string }>;
-  searchParams: Promise<{ session?: string; retry?: string }>;
+  searchParams: Promise<{ session?: string; retry?: string; example?: string }>;
 }) {
   const { scenarioId } = await params;
   const query = await searchParams;
@@ -21,5 +21,5 @@ export default async function PracticePage({ params, searchParams }: {
       <ButtonLink href="/" className="mt-8">Explore available practice<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>
     </main>
   );
-  return <PracticeFlow scenario={scenario} initialSessionId={query.session} retryRequested={query.retry === "1"} />;
+  return <PracticeFlow scenario={scenario} initialSessionId={query.session} retryRequested={query.retry === "1"} exampleRequested={query.example === "1"} />;
 }

@@ -1,5 +1,5 @@
 import type { TrackId } from "@/config/tracks";
-import type { Dimension } from "@/types/domain";
+import type { Dimension, Setup } from "@/types/domain";
 
 // Every scenario is an ask met with pushback: the counterpart opens, the user makes a case, the
 // counterpart raises the objection the user expects. The shared rubric and scoring rely on that shape.
@@ -22,6 +22,24 @@ export type Scenario = {
     objection: { label: string; hint: string; placeholder: string };
   };
   lesson?: Lesson;                                // human-written; required before a scenario goes live
+  rewrites?: Rewrites;                            // required before a scenario goes live; see Rewrites
+  example?: Setup;                                // a made-up case for "Use an example case"; required when live
+};
+
+// "Say this instead" lines, one per skill. Code fills {request} with the user's own ask and {fact} with one of
+// their complete statements, verbatim, so no line can carry a fact the user didn't give. Brackets are prompts
+// for the user to fill in; `missingFact` stands in when the coach found no statement to use.
+export type Rewrites = { templates: Record<Dimension, string>; missingFact: string };
+// For scenarios that aren't live yet: neutral wording that fits any ask.
+export const defaultRewrites: Rewrites = {
+  missingFact: "[add a specific result or moment]",
+  templates: {
+    clear_request: "Here’s what I’m asking for: {request}",
+    evidence: "Here’s what I can point to: {fact}",
+    structure: "Here’s what I’m asking for: {request} Here’s why: {fact} Can we agree on a next step by [a date]?",
+    objection_handling: "I hear the concern, and I want to answer it directly: {fact} What would need to be true for this to work?",
+    next_step: "What would you need to decide, and can we settle it by [a date]?",
+  },
 };
 
 export const scenarios: Scenario[] = [
@@ -51,6 +69,17 @@ export const scenarios: Scenario[] = [
       weak: "I’ve been working really hard this year, so I was hoping we could maybe look at my pay at some point?",
       strong: "I’m asking for a 10% raise. I cut weekly reporting from five hours to three and trained two new colleagues. What would you need to see to approve it, and when can we decide?",
     },
+    rewrites: {
+      missingFact: "[add a result with a number]",
+      templates: {
+        clear_request: "I’d like to talk about my pay. Here’s my ask: {request}",
+        evidence: "Here’s what I’ve delivered: {fact}",
+        structure: "Here’s my ask: {request} Here’s why I’ve earned it: {fact} What would you need to see to approve it, and can we decide by [a date]?",
+        objection_handling: "I understand the concern, and I want to answer it: {fact} If the timing is the problem, can we agree on the raise now and set when it starts?",
+        next_step: "What would you need to see to approve this, and can we decide by [a date]?",
+      },
+    },
+    example: { role: "Operations analyst", desiredRaise: "A 10% raise, from $90,000 to $99,000", achievements: ["Cut weekly reporting from five hours to three by automating the export", "Trained two new colleagues on the billing system in March"], objection: "Budgets are frozen until next quarter." },
   },
   {
     id: "promotion", trackId: "ask", title: "Ask for a bigger role", description: "Show you already work at the next level, and ask for the title.", live: false,
@@ -110,6 +139,17 @@ export const scenarios: Scenario[] = [
       weak: "I guess I can try to fit it in, I’m just pretty busy right now.",
       strong: "I want the launch to go well too. I’m already on the migration and the Q3 report, both due Friday. If I take this on, one of them slips. Which should move, or can this wait until Monday?",
     },
+    rewrites: {
+      missingFact: "[name a commitment and when it’s due]",
+      templates: {
+        clear_request: "I want this to go well, so here’s what I need: {request}",
+        evidence: "Here’s what’s already on my plate: {fact}",
+        structure: "I want this done well too. Here’s what I’m already on: {fact} So here’s what I need: {request} Which should move?",
+        objection_handling: "I hear that it’s urgent, and I want it done well. Here’s the trade-off: {fact} If I take this on, something slips. Which matters more right now?",
+        next_step: "Which one should move, and can we confirm that by [a day]?",
+      },
+    },
+    example: { role: "Software engineer", desiredRaise: "Move the vendor audit to next sprint", achievements: ["I’m leading the payments migration, due Friday", "I’m writing the Q3 incident report, due next Wednesday"], objection: "Everyone is stretched. I need you to make it work." },
   },
   {
     id: "feedback", trackId: "ground", title: "Give difficult feedback", description: "Say what needs to change with clarity and care.", live: true,
@@ -137,6 +177,17 @@ export const scenarios: Scenario[] = [
       weak: "You’re always late with stuff and it’s kind of becoming a problem for everyone.",
       strong: "Your section of the client report came in two days after the deadline last week, and I rewrote the summary overnight. I need your part by Thursday noon. Can we agree on that and check in next Friday?",
     },
+    rewrites: {
+      missingFact: "[add one specific moment, and when it happened]",
+      templates: {
+        clear_request: "Here’s what I need going forward: {request}",
+        evidence: "I want to talk about one specific moment: {fact}",
+        structure: "I want to talk about one specific thing. {fact} Going forward, here’s what I need: {request} Can we agree on that?",
+        objection_handling: "I hear you, and I’m not blaming you. Here’s what happened: {fact} What would make it easier to get there next time?",
+        next_step: "Can we agree on that, and check in on [a day]?",
+      },
+    },
+    example: { role: "Project lead", desiredRaise: "Send your section of the report by Thursday noon", achievements: ["Your section of the client report came in two days late last week", "I rewrote the summary overnight on Tuesday to make the deadline"], objection: "I’ve been swamped, and nobody told me it was urgent." },
   },
   {
     id: "boundary", trackId: "ground", title: "Set a boundary with a friend or family member", description: "Say no to the favor that keeps coming back, and keep the relationship.", live: true,
@@ -166,6 +217,17 @@ export const scenarios: Scenario[] = [
       weak: "I mean, it’s fine, I guess. It’s just been kind of a lot lately…",
       strong: "I love helping you, and I’m not lending the car on weekends anymore. Last month it came back empty twice. I can drive you to the station on Saturday mornings. Would that work?",
     },
+    rewrites: {
+      missingFact: "[add what happened, and when]",
+      templates: {
+        clear_request: "I care about you, and I need to be honest: {request}",
+        evidence: "Here’s why it matters to me: {fact}",
+        structure: "I care about you, so I want to say this clearly. {request} Here’s why: {fact} Here’s what I can do instead: [one thing you can offer].",
+        objection_handling: "I know you’ve done a lot for me, and I’m grateful. This isn’t about that: {fact} Here’s what I can do instead: [one thing you can offer].",
+        next_step: "Here’s what I can do instead: [one thing you can offer, and when]. Would that work for you?",
+      },
+    },
+    example: { role: "Their older sister", desiredRaise: "I can’t lend you my car on weekends anymore", achievements: ["Last month the car came back with an empty tank twice", "I missed my Saturday shift because the car wasn’t back on time"], objection: "After everything I’ve done for you? It’s one weekend." },
   },
   {
     id: "credit", trackId: "ground", title: "Speak up when someone takes credit", description: "Name what happened and ask for it to be put right.", live: false,

@@ -1,20 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown, CircleAlert, RotateCcw } from "lucide-react";
 import { rubric } from "@/config/rubric";
 import { getScenario } from "@/config/scenarios";
 import { api, ensureClientAuth, errorMessage } from "@/lib/client";
-import type { DeliveryStats, Scores, SessionBundle } from "@/types/domain";
+import type { DeliveryStats, Focus, Scores, SessionBundle } from "@/types/domain";
 import { ComparisonBoard } from "@/components/comparison-board";
 import { ProgressNext } from "@/components/progress-panel";
+import { AccountCard } from "@/components/account-card";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/feedback";
 import { ScoreBar } from "@/components/ui/score-bar";
+import { cx } from "@/lib/cx";
 
 function average(scores: Scores) { return Math.round(rubric.reduce((sum, dimension) => sum + scores[dimension.id].score, 0) / rubric.length); }
+
+/** The objection, short enough for a headline: a short question from it, another short sentence, or the start of its last one. */
+function shortObjection(text: string) {
+  const sentences = [...new Intl.Segmenter("en", { granularity: "sentence" }).segment(text.trim())].map(({ segment }) => segment.trim()).filter(Boolean);
+  const short = sentences.filter((sentence) => sentence.length <= 60);
+  const pick = short.filter((sentence) => sentence.endsWith("?")).pop() ?? short.pop();
+  if (pick) return pick;
+  const words = (sentences[sentences.length - 1] ?? text).split(/\s+/);
+  return words.length <= 8 ? words.join(" ") : `${words.slice(0, 8).join(" ").replace(/[,;:]$/, "")}…`;
+}
+
+/** One sentence that names the win, or says plainly that there wasn't one. */
+function headline(focus: Focus, retry: Scores) {
+  const quoted = `“${shortObjection(focus.objection)}”`;
+  const best = rubric
+    .map((dimension) => ({ label: dimension.label, before: focus.baselineScores[dimension.id].score, after: retry[dimension.id].score }))
+    .reduce((top, row) => row.after - row.before > top.after - top.before ? row : top);
+  if (best.after > best.before) return <>Your answer to {quoted} went from <span className="figure">{best.before}</span> to <span className="mark-figure figure">{best.after}</span> on {best.label}.</>;
+  const change = average(retry) - average(focus.baselineScores);
+  return change === 0 ? <>Your second answer to {quoted} scored the same as your first.</> : <>Your second answer to {quoted} scored lower this time. That happens; the coaching below still applies.</>;
+}
 
 const sectionTitle = "display text-xl";
 const disclosure = "link inline-flex min-h-11 items-center gap-1 text-sm";
@@ -102,6 +125,7 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const transcript = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -156,11 +180,16 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
   );
 
   const retryAnswer = bundle.turns.find((turn) => turn.attempt === 1 && turn.role === "user");
+  const focusWeakest = focus ? rubric.reduce((low, item) => focus.baselineScores[item.id].score < focus.baselineScores[low.id].score ? item : low) : null;
+  const showMoment = () => {
+    if (transcript.current) transcript.current.open = true;
+    requestAnimationFrame(() => document.getElementById("hardest-moment")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  };
 
   return (
     <main id="main" className={`${page} space-y-16`}>
       <header>
-        <h1 className="display text-2xl lg:text-3xl">{retry ? "See what changed." : "Make your next answer stronger."}</h1>
+        <h1 className="display text-2xl lg:text-3xl">{retry && focus ? headline(focus, retry.scores) : "Make your next answer stronger."}</h1>
         <p className="mt-4 text-lg text-neutral-600">{scenario?.title ?? "Your rehearsal"} · {new Date(bundle.session.created_at).toLocaleDateString()}</p>
         <p className="mt-2 max-w-measure text-sm text-neutral-500">Coaching estimate, not an objective measure or a prediction of your real conversation. Every score reflects the words used in this practice.</p>
       </header>
@@ -208,6 +237,7 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
           <div>
             <h2 id="retry-heading" className={sectionTitle}>Now put the coaching to work.</h2>
             <p className="mt-4 max-w-measure text-neutral-200">Answer this objection again. We’ll compare your new answer with the one you gave to this exact question.</p>
+            {focusWeakest && <p className="mt-4 max-w-measure text-sm text-neutral-300">Why this moment: your answer here averaged <span className="tabular font-semibold text-paper">{average(focus.baselineScores)}</span>, lowest on {focusWeakest.label.toLowerCase()} (<span className="tabular">{focus.baselineScores[focusWeakest.id].score}</span>). <button type="button" className="link text-paper" onClick={showMoment}>See it in the conversation</button></p>}
           </div>
           <blockquote className="text-lg font-medium lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-neutral-500 lg:pl-10 lg:text-xl lg:leading-snug">“{focus.objection}”</blockquote>
           <div className="lg:col-start-1">
@@ -249,9 +279,21 @@ export function ResultsView({ sessionId }: { sessionId: string }) {
         <ButtonLink variant="secondary" href="/progress">See your progress</ButtonLink>
       </section>}
 
-      <details className="group border-t border-neutral-200 pt-4">
+      <AccountCard className="max-w-3xl" />
+
+      <details ref={transcript} className="group border-t border-neutral-200 pt-4">
         <summary className="inline-flex min-h-11 items-center gap-2 rounded-sm font-semibold">Read the full transcript{chevron}</summary>
-        <ol className="mt-4 max-w-measure space-y-5">{bundle.turns.map((turn) => <li key={turn.id}><p className="text-sm font-semibold">{turn.role === "user" ? "You" : scenario?.counterpart.label ?? "Counterpart"}{turn.attempt === 1 ? " · Retry" : ""}</p><p className="mt-1 whitespace-pre-wrap break-words text-neutral-600">{turn.text}</p></li>)}</ol>
+        <ol className="mt-4 max-w-measure space-y-5">{bundle.turns.map((turn) => {
+          // The hardest moment: the objection the coach picked, and the answer that was retried.
+          const hardest = turn.attempt === 0 && turn.id === focus?.objectionTurnId;
+          const answered = turn.attempt === 0 && turn.id === focus?.answerTurnId;
+          return (
+            <li key={turn.id} id={hardest ? "hardest-moment" : undefined} className={cx((hardest || answered) && "-ml-4 border-l-4 border-marker pl-3", "scroll-mt-24")}>
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">{turn.role === "user" ? "You" : scenario?.counterpart.label ?? "Counterpart"}{turn.attempt === 1 ? " · Retry" : ""}{hardest && <span className="rounded-sm bg-marker px-1.5 py-0.5 text-xs text-ink">Hardest moment</span>}{answered && <span className="text-xs font-normal text-neutral-500">The answer you retried</span>}</p>
+              <p className={cx("mt-1 whitespace-pre-wrap break-words", hardest ? "text-ink" : "text-neutral-600")}>{turn.text}</p>
+            </li>
+          );
+        })}</ol>
       </details>
     </main>
   );

@@ -94,6 +94,35 @@ async function request(path, body, expected = 200, jar = cookies) {
   return result;
 }
 
+// The streamed form of a route: every event in order with when it arrived, then the saved bundle.
+async function streamRequest(path, body) {
+  const started = performance.now();
+  const response = await fetch(`${origin}${path}`, {
+    method: "POST",
+    headers: { Origin: origin, "Content-Type": "application/json", Accept: "application/x-ndjson", Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; ") },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(125_000),
+  });
+  assert.equal(response.status, 200, `${path} (stream): HTTP ${response.status}`);
+  assert.match(response.headers.get("content-type") ?? "", /application\/x-ndjson/);
+  const events = [];
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    for (let newline = buffer.indexOf("\n"); newline !== -1; newline = buffer.indexOf("\n")) {
+      const line = buffer.slice(0, newline);
+      buffer = buffer.slice(newline + 1);
+      if (line.trim()) events.push({ ...JSON.parse(line), at: Math.round(performance.now() - started) });
+    }
+  }
+  const error = events.find((event) => event.type === "error");
+  assert.ok(!error, `${path} (stream): ${error?.error?.code}`);
+  const done = events.find((event) => event.type === "done");
+  assert.ok(done, `${path} (stream) ended without saving`);
+  console.log(`${path} (stream): ${events.length} events, saved at ${done.at} ms`);
+  return { events, bundle: done.bundle };
+}
+
 function verifyScores(scores, sources) {
   assert.deepEqual(Object.keys(scores).sort(), [...dimensions].sort());
   for (const value of Object.values(scores)) {
@@ -137,9 +166,23 @@ try {
 
   const moods = ["neutral", "skeptical", "warm", "impatient", "impressed"];
   const reactions = [bundle.reaction];
-  for (const text of fixture.answers) {
+  for (const [index, text] of fixture.answers.entries()) {
     const input = { action: "reply", sessionId: id, requestId: randomUUID(), attempt: 0, text, audioDurationMs: null };
-    bundle = await request("/api/turn", input);
+    if (index === 1) {
+      // The streamed reply: mood first, then words, then each sentence and its voice, then the saved session.
+      const { events, bundle: saved } = await streamRequest("/api/turn", input);
+      bundle = saved;
+      assert.equal(events[0].type, "emotion");
+      const sentences = events.filter((event) => event.type === "sentence");
+      const audio = events.filter((event) => event.type === "audio");
+      assert.ok(sentences.length >= 1 && sentences.length <= 3, "A reply is one to three sentences");
+      assert.equal(audio.length, sentences.length, "Every kept sentence gets its voice, or a fallback");
+      assert.ok(audio.every((event) => typeof event.data === "string" && event.data.length > 100), "Sentence speech failed");
+      const reply = bundle.turns.filter((turn) => turn.role === "assistant").sort((a, b) => b.sequence - a.sequence)[0];
+      assert.equal(reply.text, sentences.map((event) => event.text).join(" "), "What was spoken is what was saved");
+      assert.equal(bundle.reaction.emotion, events[0].emotion);
+      console.log(`PASS streaming reply: ${sentences.length} sentence(s); first sentence at ${sentences[0].at} ms, first voice at ${audio[0].at} ms, saved at ${events.find((event) => event.type === "done").at} ms.`);
+    } else bundle = await request("/api/turn", input);
     reactions.push(bundle.reaction);
     const count = bundle.turns.length;
     const retried = await request("/api/turn", input);
@@ -159,7 +202,12 @@ try {
     console.log("PASS role: the counterpart never used workplace or manager language.");
   }
 
-  bundle = await request("/api/feedback", { sessionId: id, attempt: 0 });
+  const coaching = await streamRequest("/api/feedback", { sessionId: id, attempt: 0 });
+  bundle = coaching.bundle;
+  const steps = coaching.events.filter((event) => event.type === "step").map((event) => event.step);
+  const expected = ["reading", "scoring", "changes", "moment", "checking", "saving"];
+  assert.deepEqual(steps.filter((step) => step !== "retrying" && expected.includes(step)).filter((step, index, all) => all.indexOf(step) === index), expected, `Coaching steps out of order: ${steps.join(", ")}`);
+  console.log(`PASS coaching steps, as reached: ${coaching.events.filter((event) => event.type === "step").map((event) => `${event.step} ${event.at} ms`).join(" → ")}.`);
   const first = bundle.feedback.find((entry) => entry.attempt === 0);
   const originals = bundle.turns.filter((turn) => turn.role === "user" && turn.attempt === 0).map((turn) => turn.text);
   verifyScores(first.scores, originals);
@@ -178,6 +226,13 @@ try {
   assert.equal(bundle.session.status, "complete");
   const refreshed = await request(`/api/sessions/${id}`);
   assert.deepEqual(refreshed.feedback, bundle.feedback);
+  // Saved moods need migration 003. Without it the column is simply absent and replies reload as neutral.
+  const savedMoods = refreshed.turns.filter((turn) => turn.role === "assistant" && turn.attempt === 0).map((turn) => turn.emotion);
+  if (savedMoods.every((mood) => mood === undefined)) console.log("NOTE moods: not saved (migration 003 isn't applied); reloads show neutral.");
+  else {
+    assert.deepEqual(savedMoods, reactions.map((reaction) => reaction.emotion), "Saved moods must match the moods sent with each reply");
+    console.log("PASS moods saved: a reloaded conversation keeps each reply's expression.");
+  }
   console.log("PASS checkpoint 5: same-objection retry, same rubric, comparison persists after reload.");
 
   const { progress } = await request("/api/progress");
@@ -194,6 +249,18 @@ try {
   assert.equal(first.delivery_stats.wordsPerMinute, null);
   assert.equal(retry.delivery_stats.wordsPerMinute, null);
   console.log("PASS checkpoint 7: daily limit enforced; text-only answers have no fabricated speaking pace.");
+
+  const { account } = await request("/api/account");
+  assert.deepEqual(account, { email: null, pendingEmail: null, anonymous: true });
+  const calendar = await fetch(`${origin}/api/calendar?scenario=${progress.next.scenarioId}&focus=next_step&start=20261116T0930`);
+  const ics = await calendar.text();
+  assert.match(calendar.headers.get("content-type") ?? "", /text\/calendar/);
+  assert.match(ics, /BEGIN:VEVENT[\s\S]*DTSTART:20261116T093000\r\n[\s\S]*END:VCALENDAR/);
+  assert.equal((await fetch(`${origin}/api/calendar?scenario=nope&start=20261116T0930`)).status, 400);
+  const timing = await fetch(`${origin}/api/timing`, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json", Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; ") }, body: JSON.stringify({ stage: "client_coaching_total", durationMs: 1234 }) });
+  assert.equal(timing.status, 204);
+  assert.equal((await fetch(`${origin}/speed`)).status, 200);
+  console.log("PASS account, calendar, timing and speed: anonymous account reported; a valid calendar file; timings accepted; /speed renders.");
 
   await request("/api/waitlist", { email: `askready-check-${randomUUID()}@example.com` });
   console.log("PASS checkpoint 8: real waitlist save with a fictional example.com test address.");

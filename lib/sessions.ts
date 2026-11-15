@@ -58,8 +58,30 @@ export async function rpc<T>(name: string, body: Record<string, unknown>): Promi
 // Prevent duplicate costly generation inside one instance. DB RPCs provide the
 // durable ownership, idempotency, quota and state checks across all instances.
 const active = new Set<string>();
-export async function withSessionLock<T>(id: string, run: () => Promise<T>): Promise<T> {
+/** Returns the release function. A streamed response keeps the lock until its stream closes. */
+export function acquireSessionLock(id: string) {
   if (active.has(id)) throw new ApiError(409, "REQUEST_IN_PROGRESS", "A response is already being prepared. Please wait a moment.");
   active.add(id);
-  try { return await run(); } finally { active.delete(id); }
+  let released = false;
+  return () => { if (!released) { released = true; active.delete(id); } };
+}
+export async function withSessionLock<T>(id: string, run: () => Promise<T>): Promise<T> {
+  const release = acquireSessionLock(id);
+  try { return await run(); } finally { release(); }
+}
+
+let moodsPausedUntil = 0;
+/**
+ * Keeps a reply's mood so a reloaded conversation shows the same face. Best effort: it needs the emotion column
+ * from supabase/migrations/003_resilience.sql, and without it moods simply aren't kept. The turn id comes from
+ * a session already loaded with the user's own token.
+ */
+export async function saveEmotion(reaction: SessionBundle["reaction"]) {
+  if (!reaction || Date.now() < moodsPausedUntil) return;
+  try {
+    const response = await adminRequest(`turns?id=eq.${reaction.turnId}&role=eq.assistant`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ emotion: reaction.emotion }),
+    });
+    if (!response.ok) moodsPausedUntil = Date.now() + 5 * 60_000;
+  } catch { /* The reply itself is saved; only its face is lost. */ }
 }

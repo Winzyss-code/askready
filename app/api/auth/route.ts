@@ -3,6 +3,7 @@ import { z } from "zod";
 import { errorResponse, readJson, requireSameOrigin } from "@/lib/api";
 import { rateLimit, requestIp } from "@/lib/rate-limit";
 import { checkUserStorage, ensureAnonymousUser } from "@/lib/supabase";
+import { recordTiming } from "@/lib/timing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,9 +12,9 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   try {
     requireSameOrigin(request);
-    rateLimit(`auth:${requestIp(request)}`);
-    await readJson(request, z.object({}).strict());
-    const { user, accessToken } = await ensureAnonymousUser();
+    await rateLimit(`auth:${requestIp(request)}`);
+    const input = await readJson(request, z.object({ captchaToken: z.string().min(1).max(4096).optional() }).strict());
+    const { user, accessToken } = await ensureAnonymousUser(input.captchaToken);
     await checkUserStorage(accessToken);
     return NextResponse.json({ user: { id: user.id }, storage: "ready" }, {
       headers: { "Cache-Control": "no-store" },
@@ -21,6 +22,6 @@ export async function POST(request: Request) {
   } catch (error) {
     return errorResponse(error);
   } finally {
-    console.info(JSON.stringify({ event: "stage_timing", stage: "auth", durationMs: Math.round(performance.now() - startedAt) }));
+    recordTiming("auth", performance.now() - startedAt);
   }
 }

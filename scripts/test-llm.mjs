@@ -160,11 +160,77 @@ test("roleplay strips the mood tag and keeps the temperament's moods", async () 
   await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");
 });
 
-test("roleplay output must stay short and complete", async () => {
-  for (const text of ["One. Two. Three. Four.", Array(66).fill("word").join(" ")]) {
-    globalThis.fetch = async () => completion(text);
-    await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");
-  }
-  globalThis.fetch = async () => new Response(JSON.stringify({ choices: [{ finish_reason: "length", message: { content: "A truncated" } }] }), { status: 200 });
+test("roleplay keeps whole sentences up to three and 65 words, and rejects only what can't be cut", async () => {
+  globalThis.fetch = async () => completion("[skeptical] One. Two. Three. Four.");
+  assert.equal((await roleplay(session, transcript)).text, "One. Two. Three.");
+  const long = `${Array(40).fill("word").join(" ")}. More ${Array(29).fill("more").join(" ")}.`;
+  globalThis.fetch = async () => completion(long);
+  assert.equal((await roleplay(session, transcript)).text.split(" ").length, 40); // the second sentence would pass 65
+  globalThis.fetch = async () => completion(Array(66).fill("word").join(" "));
   await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");
+  // Out of tokens mid-sentence: the cut-off sentence goes, and with nothing whole left the reply is rejected.
+  const cut = (content) => new Response(JSON.stringify({ choices: [{ finish_reason: "length", message: { content } }] }), { status: 200 });
+  globalThis.fetch = async () => cut("A truncated");
+  await assert.rejects(roleplay(session, transcript), (error) => error.code === "AI_INVALID_RESPONSE");
+  globalThis.fetch = async () => cut("[skeptical] Fair point. But why");
+  assert.equal((await roleplay(session, transcript)).text, "Fair point.");
+});
+
+// A streamed provider response, split at the given points, in the provider's server-sent event format.
+const sse = (pieces, finish = "stop") => new Response(new ReadableStream({
+  start(controller) {
+    const encoder = new TextEncoder();
+    for (const piece of pieces) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: piece }, finish_reason: null }] })}\n\n`));
+    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: finish }] })}\n\ndata: [DONE]\n\n`));
+    controller.close();
+  },
+}), { status: 200, headers: { "Content-Type": "text/event-stream" } });
+
+test("a streamed reply gives its mood first, then its words, then each sentence as soon as the next begins", async () => {
+  let streamed;
+  globalThis.fetch = async (_url, options) => { streamed = JSON.parse(options.body).stream; return sse(["[skep", "tical] I hear", " you. But budgets", " are frozen. Why", " now?"]); };
+  const events = [];
+  const result = await roleplay(session, transcript, (event) => events.push(event));
+  assert.equal(streamed, true);
+  assert.deepEqual(result, { text: "I hear you. But budgets are frozen. Why now?", emotion: "skeptical" });
+  assert.deepEqual(events[0], { type: "emotion", emotion: "skeptical" });
+  assert.ok(events.slice(1).every((event) => !JSON.stringify(event).includes("[skeptical]")), "the tag never reaches the words");
+  const sentences = events.filter((event) => event.type === "sentence").map(({ text, index }) => [index, text]);
+  assert.deepEqual(sentences, [[0, "I hear you."], [1, "But budgets are frozen."], [2, "Why now?"]]);
+  // The first sentence is out before the last words arrive.
+  assert.ok(events.findIndex((event) => event.type === "sentence") < events.findIndex((event) => event.type === "text" && event.text.includes("now")));
+});
+
+test("a streamed reply stops reading once three sentences are kept", async () => {
+  let reads = 0;
+  globalThis.fetch = async () => {
+    const response = sse(["One. ", "Two. ", "Three. ", "Four. ", "Five. ", "Six."]);
+    const reader = response.body.getReader();
+    return new Response(new ReadableStream({ async pull(controller) { const { done, value } = await reader.read(); reads++; if (done) controller.close(); else controller.enqueue(value); } }), { status: 200 });
+  };
+  const result = await roleplay(session, transcript, () => {});
+  assert.equal(result.text, "One. Two. Three.");
+  assert.ok(reads < 7, `read ${reads} chunks; it should stop after the fourth sentence starts`);
+});
+
+test("a refusal or a broken stream is an error, never a reply", async () => {
+  globalThis.fetch = async () => new Response(`data: ${JSON.stringify({ choices: [{ delta: { refusal: "No." }, finish_reason: null }] })}\n\ndata: [DONE]\n\n`, { status: 200 });
+  await assert.rejects(roleplay(session, transcript, () => {}), (error) => error.code === "AI_REFUSAL");
+  globalThis.fetch = async () => new Response("data: {not json\n\n", { status: 200 });
+  await assert.rejects(roleplay(session, transcript, () => {}), (error) => error.code === "AI_INVALID_RESPONSE");
+});
+
+test("coaching reports each step only once the streamed JSON reaches it", async () => {
+  const body = JSON.stringify(valid());
+  const at = (key) => body.indexOf(`"${key}"`);
+  globalThis.fetch = async () => sse([body.slice(0, 40), body.slice(40, at("improvements") + 5), body.slice(at("improvements") + 5, at("focus") + 3), body.slice(at("focus") + 3)]);
+  const steps = [];
+  await generateFeedback(session, transcript, (step) => steps.push(step));
+  assert.deepEqual(steps, ["scoring", "changes", "moment", "checking"]);
+  // A retry is reported, so the waiting screen can say why it's taking longer.
+  let calls = 0;
+  globalThis.fetch = async () => (calls++ === 0 ? sse(["{}"]) : sse([body]));
+  const again = [];
+  await generateFeedback(session, transcript, (step) => again.push(step));
+  assert.deepEqual(again, ["scoring", "retrying", "scoring", "changes", "moment", "checking"]);
 });

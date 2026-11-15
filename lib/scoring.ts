@@ -1,12 +1,14 @@
 import { z } from "zod";
 import { rubric } from "@/config/rubric";
-import type { DeliveryStats, Dimension, Improvement, Scores, Setup, Turn } from "@/types/domain";
+import { defaultRewrites, type Rewrites } from "@/config/scenarios";
+import type { DeliveryStats, Improvement, Scores, Setup, Turn } from "@/types/domain";
 
 export const dimensionSchema = z.enum(["clear_request", "evidence", "structure", "objection_handling", "next_step"]);
+// Key order is generation order: the quote and reason come before the number, so the score follows the reasoning.
 const scoreSchema = z.object({
-  score: z.number().int().min(0).max(100),
   quote: z.string().min(1).max(500),
   reason: z.string().min(1).max(500),
+  score: z.number().int().min(0).max(100),
 }).strict();
 export const scoresSchema = z.object({
   clear_request: scoreSchema,
@@ -26,17 +28,34 @@ export const improvementPlanSchema = z.object({
 }).strict();
 export type ImprovementPlan = z.infer<typeof improvementPlanSchema>;
 
-export function isExactQuote(quote: string, sources: string[]) {
-  return quote.trim().length > 0 && sources.some((source) => source.includes(quote));
-}
-
-export function assertGroundedScores(scores: Scores, sources: string[]) {
-  for (const dimension of rubric) {
-    if (!isExactQuote(scores[dimension.id].quote, sources)) {
-      throw new Error(`Score quote is not an exact user excerpt: ${dimension.id}`);
+// The model sometimes types "it’s" for "it's", or starts a mid-sentence quote with a capital. Those two differences
+// are allowed and nothing else; the quote is then replaced by the span copied from the user's own words.
+const typography = (text: string) => text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+export function groundQuote(quote: string, sources: string[]): string | null {
+  const wanted = typography(quote);
+  if (!wanted.trim()) return null;
+  for (const source of sources) {
+    const plain = typography(source);
+    const exact = plain.indexOf(wanted);
+    if (exact !== -1) return source.slice(exact, exact + quote.length);
+    const lower = plain.toLowerCase();
+    for (let at = lower.indexOf(wanted.toLowerCase()); at !== -1; at = lower.indexOf(wanted.toLowerCase(), at + 1)) {
+      if (plain.slice(at + 1, at + wanted.length) === wanted.slice(1)) return source.slice(at, at + quote.length);
     }
   }
+  return null;
 }
+export function isExactQuote(quote: string, sources: string[]) { return groundQuote(quote, sources) !== null; }
+
+/** Throws unless every quote is from the user's words; returns the scores with each quote as the user wrote it. */
+export function groundScores(scores: Scores, sources: string[]): Scores {
+  return Object.fromEntries(rubric.map(({ id }) => {
+    const quote = groundQuote(scores[id].quote, sources);
+    if (quote === null) throw new Error(`Score quote is not an exact user excerpt: ${id}`);
+    return [id, { ...scores[id], quote }];
+  })) as Scores;
+}
+export const assertGroundedScores = (scores: Scores, sources: string[]) => { groundScores(scores, sources); };
 
 function sentence(value: string) {
   const trimmed = value.trim();
@@ -44,25 +63,20 @@ function sentence(value: string) {
 }
 
 /** Facts stay verbatim. This is deliberately more conservative than free rewrites. */
-export function buildImprovements(plans: ImprovementPlan[], setup: Setup, userSources: string[]): Improvement[] {
+export function buildImprovements(plans: ImprovementPlan[], setup: Setup, userSources: string[], rewrites: Rewrites = defaultRewrites): Improvement[] {
   const factualSources = [...setup.achievements, ...userSources];
   return plans.map((plan) => {
-    if (!isExactQuote(plan.quote, userSources)) throw new Error("Improvement quote is not an exact user excerpt");
+    const quote = groundQuote(plan.quote, userSources);
+    if (quote === null) throw new Error("Improvement quote is not an exact user excerpt");
     // A substring could silently drop a negation ("did not increase sales").
     // Require the entire supplied achievement/answer, not a favorable fragment.
     if (plan.supportingFact && !factualSources.includes(plan.supportingFact)) {
       throw new Error("Supporting fact is not a complete verbatim user statement");
     }
-    const fact = plan.supportingFact ? sentence(plan.supportingFact) : "[add a measurable result].";
-    const request = sentence(setup.desiredRaise);
-    const templates: Record<Dimension, string> = {
-      clear_request: `Here is what I'm asking for: ${request}`,
-      evidence: `Here is the evidence I can point to: ${fact}`,
-      structure: `My request: ${request} My evidence: ${fact} What would be the next step?`,
-      objection_handling: `I understand the concern. Here is the evidence I can point to: ${fact} What would we need to resolve before moving forward?`,
-      next_step: "What would you need from me to make a decision, and when can we revisit this?",
-    };
-    return { quote: plan.quote, rewrite: templates[plan.dimension], why: plan.why };
+    const fact = plan.supportingFact ? sentence(plan.supportingFact) : sentence(rewrites.missingFact);
+    // A function replacement, so a "$" in the user's words is never read as a pattern.
+    const rewrite = rewrites.templates[plan.dimension].replace(/\{(request|fact)\}/g, (_, key: string) => key === "request" ? sentence(setup.desiredRaise) : fact);
+    return { quote, rewrite, why: plan.why, dimension: plan.dimension };
   });
 }
 

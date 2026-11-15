@@ -1,0 +1,593 @@
+{
+  "_about": "Fixed answers for checking the coach against config/rubric.ts. Each case is one answer to one objection, scored the way a retry is (generateRetryFeedback). Ranges are our expectation from the anchors, written before running the coach; widen one only with a reason. Order of each range list: clear_request, evidence, structure, objection_handling, next_step.",
+  "setups": {
+    "raise": {
+      "role": "Operations analyst",
+      "desiredRaise": "A 10% raise, from $90,000 to $99,000",
+      "achievements": [
+        "Cut weekly reporting from five hours to three by automating the export",
+        "Trained two new colleagues on the billing system in March"
+      ],
+      "objection": "Budgets are frozen until next quarter."
+    },
+    "pushback": {
+      "role": "Software engineer",
+      "desiredRaise": "Move the vendor audit to next sprint",
+      "achievements": [
+        "I'm leading the payments migration, due Friday",
+        "I'm writing the Q3 incident report, due next Wednesday"
+      ],
+      "objection": "Everyone is stretched. I need you to make it work."
+    },
+    "feedback": {
+      "role": "Project lead",
+      "desiredRaise": "Send your section of the report by Thursday noon",
+      "achievements": [
+        "The client report section came in two days late last week",
+        "I rewrote the summary overnight on Tuesday to make the deadline"
+      ],
+      "objection": "I've been swamped, and nobody told me it was urgent."
+    },
+    "boundary": {
+      "role": "Their older sister",
+      "desiredRaise": "I can't lend you my car on weekends anymore",
+      "achievements": [
+        "Last month the car came back with an empty tank twice",
+        "I missed my Saturday shift because the car wasn't back on time"
+      ],
+      "objection": "After everything I've done for you? It's one weekend."
+    }
+  },
+  "objections": {
+    "raise": "I hear you, but budgets are frozen until next quarter. Why should this happen now?",
+    "pushback": "I get it, but everyone is stretched. I need you to make it work.",
+    "feedback": "Sorry, I've been swamped, and honestly nobody told me it was urgent.",
+    "boundary": "After everything I've done for you? It's one weekend!"
+  },
+  "cases": [
+    {
+      "id": "raise-giving-up",
+      "scenario": "raise",
+      "answer": "Yeah, I mean, I totally understand. Maybe we can talk about it some other time.",
+      "expect": [
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          10,
+          50
+        ]
+      ]
+    },
+    {
+      "id": "raise-effort-only",
+      "scenario": "raise",
+      "answer": "I've been working really hard this year and I think I deserve more money. I was hoping we could maybe look at my pay.",
+      "expect": [
+        [
+          15,
+          50
+        ],
+        [
+          10,
+          35
+        ],
+        [
+          10,
+          50
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          35
+        ]
+      ]
+    },
+    {
+      "id": "raise-decent-first",
+      "decent": true,
+      "scenario": "raise",
+      "answer": "I understand budgets are tight. I'm asking for a 10% raise because I automated our reporting and trained the new hires. Can we talk about it again soon?",
+      "expect": [
+        [
+          75,
+          100
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          50,
+          80
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          40,
+          75
+        ]
+      ]
+    },
+    {
+      "id": "raise-complete",
+      "scenario": "raise",
+      "answer": "I know the budget is frozen until next quarter, so I'm not asking for money today. I'm asking for a 10% raise, to $99,000, starting in the new budget. I cut weekly reporting from five hours to three, and I trained two new colleagues on billing in March. Can we agree it goes into the Q1 budget, and confirm at our 1:1 on January 15th?",
+      "expect": [
+        [
+          90,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          90,
+          100
+        ]
+      ]
+    },
+    {
+      "id": "raise-evidence-no-close",
+      "scenario": "raise",
+      "answer": "I'm asking for a 10% raise. This year I cut weekly reporting from five hours to three, which saves the team about eighty hours a year, and I trained two new colleagues on billing in March.",
+      "expect": [
+        [
+          85,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          0,
+          50
+        ],
+        [
+          0,
+          25
+        ]
+      ]
+    },
+    {
+      "id": "raise-date-vague-ask",
+      "scenario": "raise",
+      "answer": "Could we sit down on Friday the 12th and decide on my compensation? I'd like you to tell me then what you'd need to see.",
+      "expect": [
+        [
+          25,
+          60
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          25,
+          60
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          85,
+          100
+        ]
+      ]
+    },
+    {
+      "id": "raise-arguing",
+      "scenario": "raise",
+      "answer": "Honestly, that's what you said last year. If there's no money for me, maybe I should look elsewhere.",
+      "expect": [
+        [
+          0,
+          30
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ]
+    },
+    {
+      "id": "raise-handles-freeze",
+      "scenario": "raise",
+      "answer": "I understand the freeze, and I don't want to put you in a bad spot. Since automating the export cut my reporting from five hours to three, could we agree on the raise for when the budget reopens next quarter?",
+      "expect": [
+        [
+          40,
+          75
+        ],
+        [
+          60,
+          85
+        ],
+        [
+          50,
+          85
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          60,
+          85
+        ]
+      ]
+    },
+    {
+      "id": "pushback-caves",
+      "scenario": "pushback",
+      "answer": "Okay, I guess I can try to fit it in somehow.",
+      "expect": [
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          35
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ]
+    },
+    {
+      "id": "pushback-complete",
+      "scenario": "pushback",
+      "answer": "I want the audit done well too. I'm leading the payments migration, due Friday, and the Q3 incident report, due next Wednesday. If I take the audit now, one of those slips. Can we move the audit to next sprint, or tell me today which one should give?",
+      "expect": [
+        [
+          70,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          75,
+          100
+        ]
+      ]
+    },
+    {
+      "id": "pushback-bare-no",
+      "scenario": "pushback",
+      "answer": "I'm pretty swamped with the migration right now, so I don't think I can take on the audit.",
+      "expect": [
+        [
+          25,
+          60
+        ],
+        [
+          25,
+          60
+        ],
+        [
+          25,
+          60
+        ],
+        [
+          15,
+          50
+        ],
+        [
+          0,
+          25
+        ]
+      ]
+    },
+    {
+      "id": "pushback-decent-first",
+      "decent": true,
+      "scenario": "pushback",
+      "answer": "I understand the team is stretched. I'm on the payments migration until Friday, so could the audit move to next sprint? We could revisit priorities next week.",
+      "expect": [
+        [
+          70,
+          100
+        ],
+        [
+          50,
+          80
+        ],
+        [
+          60,
+          90
+        ],
+        [
+          60,
+          90
+        ],
+        [
+          50,
+          80
+        ]
+      ]
+    },
+    {
+      "id": "feedback-blame",
+      "scenario": "feedback",
+      "answer": "You're always late with stuff and it's becoming a problem for everyone.",
+      "expect": [
+        [
+          0,
+          30
+        ],
+        [
+          10,
+          35
+        ],
+        [
+          10,
+          40
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "feedback-complete",
+      "scenario": "feedback",
+      "answer": "I hear you've been swamped, and I should have flagged the deadline more clearly. Last week your section came in two days late, and I rewrote the summary overnight on Tuesday. Going forward, I need your part by Thursday noon. Can we agree on that and check in Friday morning?",
+      "expect": [
+        [
+          85,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          85,
+          100
+        ]
+      ]
+    },
+    {
+      "id": "feedback-decent-first",
+      "decent": true,
+      "scenario": "feedback",
+      "answer": "I get that you're busy, but the report was late and it caused problems. Can you try to be on time?",
+      "expect": [
+        [
+          25,
+          60
+        ],
+        [
+          25,
+          55
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          10,
+          75
+        ]
+      ]
+    },
+    {
+      "id": "feedback-meeting-only",
+      "scenario": "feedback",
+      "answer": "Can we set up a time on Thursday to talk about the report deadlines?",
+      "expect": [
+        [
+          10,
+          50
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          15,
+          50
+        ],
+        [
+          0,
+          30
+        ],
+        [
+          50,
+          90
+        ]
+      ]
+    },
+    {
+      "id": "boundary-folds",
+      "scenario": "boundary",
+      "answer": "I mean, it's fine, I guess. It's just been kind of a lot lately.",
+      "expect": [
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          30
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "boundary-complete",
+      "scenario": "boundary",
+      "answer": "I know you've done a lot for me, and I love helping you. But I'm not lending the car on weekends anymore. Last month it came back empty twice, and I missed my Saturday shift. I can drive you to the station this Saturday at 8. Would that work?",
+      "expect": [
+        [
+          85,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          75,
+          100
+        ],
+        [
+          85,
+          100
+        ],
+        [
+          85,
+          100
+        ]
+      ]
+    },
+    {
+      "id": "boundary-apology",
+      "decent": true,
+      "scenario": "boundary",
+      "answer": "I'm sorry, I just can't keep lending you the car. It's been causing problems for me.",
+      "expect": [
+        [
+          50,
+          80
+        ],
+        [
+          15,
+          40
+        ],
+        [
+          25,
+          50
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "boundary-limit-and-offer",
+      "scenario": "boundary",
+      "answer": "I love you, but no more weekend car loans. I can lend it on weekdays when I work from home.",
+      "expect": [
+        [
+          75,
+          100
+        ],
+        [
+          0,
+          25
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          40,
+          75
+        ],
+        [
+          40,
+          80
+        ]
+      ]
+    }
+  ]
+}

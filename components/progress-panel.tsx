@@ -13,6 +13,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Notice, Skeleton } from "@/components/ui/feedback";
 import { Bar } from "@/components/ui/score-bar";
+import { AddToCalendar } from "@/components/add-to-calendar";
 
 const count = (value: number, noun: string) => `${value} ${noun}${value === 1 ? "" : "s"}`;
 const inARow = (days: number) => `${count(days, "day")} in a row`;
@@ -62,6 +63,7 @@ export function ProgressNext({ className }: { className?: string }) {
     <p className={cx("max-w-measure animate-settle", className)}>
       {progress.streak.current > 0 && <><span className="font-semibold">{inARow(progress.streak.current)}.</span>{" "}</>}
       Tomorrow’s suggested conversation: <Link className="link" href={`/practice/${next.id}`}>{next.title}</Link>.
+      <AddToCalendar className="mt-1 flex text-sm" scenarioId={next.id} focus={progress.next.focus} />
     </p>
   );
 }
@@ -101,6 +103,7 @@ function NextSession({ progress }: { progress: Progress }) {
         {!today.used && next && <ButtonLink href={`/practice/${next.id}`}>Start today’s session<ArrowRight aria-hidden="true" className="size-4" /></ButtonLink>}
         {today.used && !open && today.sessionId && <ButtonLink variant="secondary" href={`/results/${today.sessionId}`}>Review today’s coaching</ButtonLink>}
         {today.used && !open && next && <Link className="link flex min-h-11 items-center" href={`/practice/${next.id}`}>Read tomorrow’s technique</Link>}
+        {!open && next && <AddToCalendar scenarioId={next.id} focus={progress.next.focus} />}
       </div>
     </Card>
   );

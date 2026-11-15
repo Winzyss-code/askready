@@ -22,7 +22,7 @@ function load(relativePath) {
   return compiledModule.exports;
 }
 
-const { deliveryStats, isExactQuote, assertGroundedScores, buildImprovements, answeredObjections, nextExercise } = load("lib/scoring.ts");
+const { deliveryStats, isExactQuote, groundQuote, groundScores, assertGroundedScores, buildImprovements, answeredObjections, nextExercise } = load("lib/scoring.ts");
 const { rubric } = load("config/rubric.ts");
 const turn = (text, role = "user", duration = null, sequence = 0, attempt = 0) => ({
   id: `turn-${attempt}-${sequence}`, session_id: "session", role, text, audio_duration_ms: duration, attempt, sequence, created_at: "2026-01-01T00:00:00Z",
@@ -75,8 +75,32 @@ test("rewrites preserve actual supporting facts and reject invented numbers", ()
   const result = buildImprovements([plan], setup, ["I want maybe a raise"]);
   assert.match(result[0].rewrite, /Reduced processing time by 20%/);
   assert.throws(() => buildImprovements([{ ...plan, supportingFact: "Grew revenue by 50%" }], setup, ["I want maybe a raise"]));
-  assert.match(buildImprovements([{ ...plan, supportingFact: "" }], setup, ["I want maybe a raise"])[0].rewrite, /\[add a measurable result\]/);
+  assert.match(buildImprovements([{ ...plan, supportingFact: "" }], setup, ["I want maybe a raise"])[0].rewrite, /\[add a specific result or moment\]/);
   assert.throws(() => buildImprovements([{ ...plan, supportingFact: "increase sales" }], setup, ["I did not increase sales", "I want maybe a raise"]));
+});
+
+test("quotes may differ only in quote-mark style and a first capital, and come back as the user wrote them", () => {
+  const said = ["I mean, it's fine. It’s just been a lot lately."];
+  assert.equal(groundQuote("it's just been a lot lately.", said), "It’s just been a lot lately.");
+  assert.equal(groundQuote("I mean, it’s fine.", said), "I mean, it's fine.");
+  assert.equal(groundQuote("It's Just been a lot", said), null); // only the first letter may change case
+  assert.equal(groundQuote("it's fine. it's just", said), null);
+  const grounded = groundScores(scores("it's just been a lot lately."), said);
+  assert.ok(Object.values(grounded).every((score) => score.quote === "It’s just been a lot lately."));
+  assert.throws(() => groundScores(scores("After everything I've done for you?"), said));
+});
+
+test("each scenario writes its own rewrites, with the user's facts verbatim and no raise wording in a boundary", () => {
+  const { getScenario } = load("config/scenarios.ts");
+  const boundary = getScenario("boundary");
+  const own = { role: "Sister", desiredRaise: "I can't lend you my car on weekends anymore", achievements: ["The car came back empty twice in $ and $& terms", "I missed a shift"], objection: "It's one weekend" };
+  const plans = ["clear_request", "evidence", "structure", "objection_handling", "next_step"].map((dimension) => ({ quote: "it's fine", dimension, supportingFact: own.achievements[0], why: "Be clear." }));
+  const rewrites = buildImprovements(plans, own, ["I mean, it's fine"], boundary.rewrites);
+  for (const { rewrite } of rewrites) assert.doesNotMatch(rewrite, /decision|approve|measurable|\{(request|fact)\}/);
+  assert.match(rewrites[0].rewrite, /I can't lend you my car on weekends anymore\./);
+  assert.match(rewrites[1].rewrite, /The car came back empty twice in \$ and \$& terms\./); // "$" is not a pattern
+  assert.deepEqual(rewrites.map(({ dimension }) => dimension), plans.map(({ dimension }) => dimension));
+  assert.match(buildImprovements([{ ...plans[1], supportingFact: "" }], own, ["I mean, it's fine"], boundary.rewrites)[0].rewrite, /\[add what happened, and when\]/);
 });
 
 test("focus candidates exclude greeting, unanswered final objection and retry", () => {
@@ -102,7 +126,8 @@ test("next exercise follows the weakest dimension with stable ties", () => {
 test("scenario config is complete: tracks, unique ids, and a three-step lesson for every live scenario", () => {
   const { scenarios } = load("config/scenarios.ts");
   const { tracks } = load("config/tracks.ts");
-  const { personas } = load("config/personas.ts");
+  const { personas, personasFor, sampleLine } = load("config/personas.ts");
+  const { setupSchema } = load("lib/validation.ts");
   const dimensions = rubric.map(({ id }) => id);
   assert.equal(new Set(scenarios.map(({ id }) => id)).size, scenarios.length);
   assert.ok(scenarios.some(({ live }) => live));
@@ -115,6 +140,11 @@ test("scenario config is complete: tracks, unique ids, and a three-step lesson f
     assert.equal(scenario.lesson.steps.length, 3);
     for (const step of scenario.lesson.steps) assert.ok(dimensions.includes(step.dimension), `${scenario.id} lesson uses an unknown dimension`);
     assert.ok(scenario.lesson.weak.trim() && scenario.lesson.strong.trim());
+    assert.ok(scenario.rewrites, `${scenario.id} is live without its own rewrites`);
+    assert.deepEqual(Object.keys(scenario.rewrites.templates).sort(), [...dimensions].sort());
+    assert.ok(scenario.rewrites.missingFact.startsWith("["));
+    assert.ok(setupSchema.safeParse(scenario.example).success, `${scenario.id} needs a valid example case`);
+    for (const persona of personasFor(scenario)) assert.ok(sampleLine(persona, scenario.id).trim());
   }
   // The counterpart's role comes from the scenario, so temperaments must not name one.
   for (const persona of personas) assert.doesNotMatch(persona.systemPrompt, /manager|employee/i);

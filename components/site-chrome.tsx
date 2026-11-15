@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { ButtonLink } from "@/components/ui/button";
 
 export function BrandMark() {
@@ -15,6 +16,12 @@ export function BrandMark() {
 /** Marketing pages get the full header. Practice keeps only the way home, so nothing competes with the conversation. */
 export function SiteHeader({ practiceHref }: { practiceHref: string }) {
   const focused = usePathname().startsWith("/practice");
+  // If Supabase sends an email link to the home page (its redirect URL isn't allow-listed), finish the sign-in anyway.
+  useEffect(() => {
+    if (/(^|[#&])(access_token|error_description)=/.test(window.location.hash) && window.location.pathname !== "/auth/callback") {
+      window.location.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+    }
+  }, []);
   return (
     <header className="shell flex min-h-16 items-center justify-between gap-4 py-2">
       <Link href="/" aria-label="AskReady home" className="display flex min-h-11 items-center gap-2 rounded-sm text-lg">
@@ -35,7 +42,10 @@ export function SiteFooter() {
     <footer className="shell mt-24">
       <div className="flex flex-col justify-between gap-2 border-t border-neutral-200 py-8 text-sm text-neutral-500 sm:flex-row sm:items-center">
         <p>AskReady. Say the hard thing, after you’ve practiced it.</p>
-        <Link href="/pricing" className="link flex min-h-11 items-center self-start text-neutral-600">Free &amp; Pro</Link>
+        <span className="flex gap-6">
+          <Link href="/speed" className="link flex min-h-11 items-center self-start text-neutral-600">Speed</Link>
+          <Link href="/pricing" className="link flex min-h-11 items-center self-start text-neutral-600">Free &amp; Pro</Link>
+        </span>
       </div>
     </footer>
   );

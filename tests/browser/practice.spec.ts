@@ -12,6 +12,13 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   await page.setViewportSize({ width: 390, height: 844 });
   await fits();
   await screenshot("landing-mobile");
+  // The quick start: a clearly labelled, made-up case, filled in and editable, without starting a session.
+  await page.getByRole("link", { name: "Or try a ready-made example" }).click();
+  await expect(page.getByText("Example case loaded")).toBeVisible();
+  await expect(page.getByLabel("Your job role")).toHaveValue("Operations analyst");
+  await expect(page.getByText("“Budgets are frozen. Why now?”").first()).toBeVisible();
+  await fits();
+  await page.goto("/");
   await page.getByRole("link", { name: "Pricing", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Join Pro waitlist" })).toBeVisible();
@@ -30,10 +37,12 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   await fits();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await screenshot("setup-desktop");
-  const openingSpeech = page.waitForResponse((response) => response.url().endsWith("/api/speak"));
+  // The opening streams its own voice with the reply, so it never needs a separate speech request.
+  let speechRequests = 0;
+  page.on("request", (request) => { if (request.url().endsWith("/api/speak")) speechRequests++; });
   await page.getByRole("button", { name: "Start my rehearsal" }).click();
   await expect(page.getByRole("heading", { name: "Your intention" })).toBeVisible();
-  expect((await openingSpeech).status()).toBe(200);
+  expect(speechRequests).toBe(0);
   const stop = page.getByRole("button", { name: "Stop playback" });
   if (await stop.isVisible()) await stop.click();
 
@@ -47,11 +56,14 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   const voiceText = await page.getByRole("textbox", { name: "Your answer", exact: true }).inputValue();
   expect(voiceText.toLowerCase()).toMatch(/raise|reporting|colleagues/);
 
-  // Service failure must leave readable replies and usable text entry.
+  // Blocked playback (as on a phone that wasn't tapped) and no browser voice must leave a readable reply and usable text entry.
   await page.route("**/api/speak", (route) => route.fulfill({ status: 503, contentType: "application/json", body: '{"error":{"code":"TEST_OUTAGE"}}' }));
-  await page.evaluate(() => Object.defineProperty(window, "SpeechSynthesisUtterance", { value: undefined, configurable: true }));
+  await page.evaluate(() => {
+    HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException("Test block", "NotAllowedError"));
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { value: undefined, configurable: true });
+  });
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
-  await expect(page.getByText("Audio is unavailable in this browser.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Playback was blocked or isn’t available.", { exact: false })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Your answer", exact: true })).toBeEnabled();
 
   // Permission denial must automatically offer the same text practice path.
@@ -65,12 +77,15 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   await expect(page.getByRole("button", { name: "Finish & get coaching" })).toBeEnabled();
   await screenshot("practice-desktop");
   await page.getByRole("button", { name: "Finish & get coaching" }).click();
-  await expect(page.getByRole("heading", { name: "Three changes to try" })).toBeVisible();
+  // Steps appear as the server reaches them.
+  await expect(page.getByText("Reading your answers")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Three changes to try" })).toBeVisible({ timeout: 90_000 }); // a real model call
   await expect(page.getByRole("heading", { name: "You said", exact: true })).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Say this instead", exact: true })).toHaveCount(3);
   await screenshot("feedback-desktop");
   await page.getByRole("link", { name: "Retry this moment" }).click();
   await expect(page.getByRole("heading", { name: "Try that moment again." })).toBeVisible();
+  await expect(page.getByText("Try:", { exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Your answer", exact: true })).toBeEnabled();
   await page.evaluate(() => Object.defineProperty(window, "MediaRecorder", { value: undefined, configurable: true }));
   await page.getByRole("button", { name: "Record an answer" }).click();
@@ -78,6 +93,7 @@ test("voice and text rehearsal, grounded coaching, retry, refresh, and responsiv
   await page.getByRole("textbox", { name: "Your answer", exact: true }).fill("I understand the budget is frozen until next quarter. I am asking for a 10% raise based on reducing reporting from 5 hours to 3 hours and training two colleagues. Can we agree on the criteria now and set a decision meeting for the start of next quarter?");
   await page.getByRole("button", { name: "Send answer", exact: true }).click();
   await expect(page.getByRole("heading", { name: "One objection. Two answers." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Your (answer|second answer) to “/);
   await expect(page.getByRole("row")).toHaveCount(7);
   const resultUrl = page.url();
   await page.reload();

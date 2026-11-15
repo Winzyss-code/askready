@@ -1,5 +1,6 @@
 import "server-only";
 import { ApiError } from "@/lib/api";
+import { recordTiming } from "@/lib/timing";
 
 export async function synthesize(text: string): Promise<ArrayBuffer> {
   const key = process.env.OPENAI_API_KEY;
@@ -21,6 +22,6 @@ export async function synthesize(text: string): Promise<ArrayBuffer> {
     if (error instanceof ApiError) throw error;
     throw new ApiError(502, "SPEECH_UNAVAILABLE", "AI speech took too long or could not connect. Read the reply or use browser speech.");
   } finally {
-    console.info(JSON.stringify({ event: "stage_timing", stage: "speak", durationMs: Math.round(performance.now() - started) }));
+    recordTiming("speak", performance.now() - started);
   }
 }
